@@ -71,7 +71,12 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <View style={styles.flex}>
             <Text style={type.bodySoft}>{greeting()}{first ? `, ${first}` : ""}</Text>

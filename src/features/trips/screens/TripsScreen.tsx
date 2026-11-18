@@ -139,6 +139,7 @@ export function TripsScreen() {
         </View>
       ) : (
         <SectionList
+          contentInsetAdjustmentBehavior="automatic"
           sections={sections}
           keyExtractor={(w) => w.id}
           contentContainerStyle={styles.list}

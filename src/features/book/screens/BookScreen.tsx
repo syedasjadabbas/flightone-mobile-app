@@ -307,7 +307,12 @@ export function BookScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View>
           <Text style={type.h1}>Book</Text>
           <Text style={type.bodySoft}>Pick your trip. Ava searches live prices.</Text>
