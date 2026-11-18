@@ -9,6 +9,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   {
     title: "Travel",
     items: [
+      { title: "Profile", detail: "Your details, travellers, documents and security", href: "/profile" },
       { title: "Travel Vault", detail: "Passports, visas, tickets and insurance", href: "/vault" },
       { title: "Visa", detail: "Check requirements and track applications", href: "/visa" },
       { title: "Rewards", detail: "Points, tier and referrals", href: "/rewards" },

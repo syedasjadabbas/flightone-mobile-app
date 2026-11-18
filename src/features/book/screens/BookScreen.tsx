@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { AppText, Button, Card, Notice, Pill, Screen, TextField, DateField } from "@/core/components";
 import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
 import { ChoiceRow } from "@/features/checkout/components/ChoiceRow";
@@ -166,6 +166,17 @@ function CarsForm() {
 
 export function BookScreen() {
   const [tab, setTab] = useState<Tab>("flights");
+  // Home's quick actions open a given tab (`/book?tab=stays`): switch when the param
+  // arrives, then clear it so the same shortcut works again next time.
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [seenTab, setSeenTab] = useState<string | undefined>(undefined);
+  if (params.tab !== seenTab) {
+    setSeenTab(params.tab);
+    if (params.tab === "flights" || params.tab === "stays" || params.tab === "cars") setTab(params.tab);
+  }
+  useEffect(() => {
+    if (params.tab) router.setParams({ tab: undefined });
+  }, [params.tab]);
   return (
     <Screen>
       <AppText variant="h1">Book</AppText>
