@@ -12,13 +12,16 @@ const LABELS: Record<PayMethod, string> = {
   corporate_credit: "Corporate credit",
 };
 
-/** Methods this booking can use: what the server enables; hotels pay by card only (same as web). */
-export function availableMethods(booking: BookingDetail): PayMethod[] {
-  if (booking.product === "HOTEL") return ["card"];
+/**
+ * Methods this booking can use: what the server enables; hotels pay by card only;
+ * corporate credit only for a company booking while the company profile is active (same as web).
+ */
+export function availableMethods(booking: BookingDetail, corporate = false): PayMethod[] {
+  const corp: PayMethod[] = corporate && booking.metadata?.companyId ? ["corporate_credit"] : [];
+  if (booking.product === "HOTEL") return [...corp, "card"];
   const enabled = booking.paymentCapability?.methods;
   const order: PayMethod[] = ["card", "jazzcash", "easypaisa", "onelink_ibft"];
-  if (!enabled) return order;
-  return order.filter((m) => enabled[m] !== false);
+  return [...corp, ...(enabled ? order.filter((m) => enabled[m] !== false) : order)];
 }
 
 export function PaymentSection({
@@ -30,7 +33,9 @@ export function PaymentSection({
   accountNumber,
   setAccountNumber,
   disabled,
+  corporate = false,
 }: {
+  corporate?: boolean;
   booking: BookingDetail;
   method: PayMethod;
   setMethod: (m: PayMethod) => void;
@@ -40,7 +45,7 @@ export function PaymentSection({
   setAccountNumber: (v: string) => void;
   disabled?: boolean;
 }) {
-  const methods = availableMethods(booking);
+  const methods = availableMethods(booking, corporate);
   const simulated = booking.paymentCapability?.mode === "simulated";
   const isHotel = booking.product === "HOTEL";
 
@@ -90,6 +95,10 @@ export function PaymentSection({
               : "You will receive an OTP / PIN prompt on this number."}
           </Text>
         </>
+      ) : null}
+
+      {method === "corporate_credit" ? (
+        <Text style={type.bodySoft}>Charged to your company's credit line. The server checks your available credit and approval.</Text>
       ) : null}
 
       {method === "onelink_ibft" ? (

@@ -12,15 +12,22 @@ const SECTIONS: { title: string; items: Item[] }[] = [
       { title: "Travel Vault", detail: "Passports, visas, tickets and insurance", href: "/vault" },
       { title: "Visa", detail: "Check requirements and track applications", href: "/visa" },
       { title: "Rewards", detail: "Points, tier and referrals", href: "/rewards" },
+      { title: "Travel Concierge", detail: "Automatic help when a trip is disrupted", href: "/concierge" },
     ],
   },
   {
-    title: "Coming in Phase 6",
+    title: "Help",
     items: [
-      { title: "Refunds & changes", detail: "Cancel or change a booking", soon: true },
-      { title: "Support", detail: "Talk to a FlightOne consultant", soon: true },
-      { title: "Corporate", detail: "Company travel, approvals and policy", soon: true },
-      { title: "Groups & MICE", detail: "Group trips and events", soon: true },
+      { title: "Refunds & changes", detail: "Refund or cancel a booking, track your cases", href: "/refunds" },
+      { title: "Support", detail: "Answers, and talk to a FlightOne consultant", href: "/support" },
+    ],
+  },
+  {
+    title: "Business & groups",
+    items: [
+      { title: "Corporate", detail: "Company profile, approvals and policy", href: "/corporate" },
+      { title: "Group travel", detail: "Quotes for 10+ travellers and trip groups", href: "/groups" },
+      { title: "Events & MICE", detail: "Conferences, meetings and incentive trips", href: "/mice" },
     ],
   },
 ];

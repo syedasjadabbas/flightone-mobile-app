@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { colors, fonts, radius, shadow, space, type } from "@/core/theme/tokens";
+import { CorporateModeBanner } from "@/features/corporate/components/CorporateModeBanner";
 import { Composer } from "../components/Composer";
 import { MessageBubble } from "../components/MessageBubble";
 import { useAvaChat } from "../hooks/useAvaChat";
@@ -51,6 +52,7 @@ export function AvaScreen() {
           </Pressable>
         ) : null}
       </View>
+      <CorporateModeBanner />
 
       <KeyboardAvoidingView
         style={styles.flex}

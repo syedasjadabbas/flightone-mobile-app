@@ -102,6 +102,15 @@ export function TripCard({ watch }: { watch: JourneyWatch }) {
 
       {note ? <Notice tone={note.tone} message={note.text} /> : null}
       {canRefresh ? <Button label="Refresh status" variant="ghost" onPress={refresh} loading={pollState.isLoading} /> : null}
+      {!closed && watch.bookingId ? (
+        <Pressable
+          accessibilityRole="link"
+          hitSlop={8}
+          onPress={() => router.push({ pathname: "/refunds", params: { bookingId: watch.bookingId } })}
+        >
+          <Text style={styles.link}>Refunds & changes</Text>
+        </Pressable>
+      ) : null}
     </Card>
   );
 }

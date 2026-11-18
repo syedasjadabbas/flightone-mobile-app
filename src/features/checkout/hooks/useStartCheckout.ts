@@ -2,6 +2,7 @@ import { useState } from "react";
 import { router } from "expo-router";
 import { formatApiError } from "@/core/api/formatApiError";
 import type { OfferCard } from "@/features/ava/types";
+import { useCorporateProfileStore } from "@/features/corporate/store/corporateProfile.store";
 import { useQuoteOfferMutation } from "../api/bookingsApi";
 import { bookingBlocked } from "../lib/bookability";
 
@@ -24,7 +25,10 @@ export function useStartCheckout(offer: OfferCard) {
       return;
     }
     try {
-      const booking = await quote(offer as unknown as Record<string, unknown>).unwrap();
+      // Company profile: the server verifies membership and tags the quote to the company.
+      const { mode, companyId } = useCorporateProfileStore.getState();
+      const body = { ...(offer as unknown as Record<string, unknown>), ...(mode === "CORPORATE" && companyId ? { companyId } : {}) };
+      const booking = await quote(body).unwrap();
       if (!booking?.id) {
         setError("Checkout didn't return a booking reference. Please try that fare again.");
         return;

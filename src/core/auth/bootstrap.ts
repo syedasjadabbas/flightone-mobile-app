@@ -1,3 +1,4 @@
+import { useCorporateProfileStore } from "@/features/corporate/store/corporateProfile.store";
 import { getDeviceId } from "./deviceId";
 import { useAuthStore } from "./auth.store";
 import { refreshSessionOnce } from "./refreshSession";
@@ -10,6 +11,7 @@ export async function bootstrapAuth(): Promise<void> {
   const store = useAuthStore.getState();
   await getDeviceId();
   await store.hydrate();
+  await useCorporateProfileStore.getState().hydrate();
 
   if (!useAuthStore.getState().refreshToken) {
     store.setStatus("signedOut");

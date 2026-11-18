@@ -1,6 +1,7 @@
 import { baseApi } from "@/core/api/baseApi";
 import { PATHS } from "@/core/constants/api";
 import { useAuthStore, type AuthSession, type AuthUser } from "@/core/auth/auth.store";
+import { useCorporateProfileStore } from "@/features/corporate/store/corporateProfile.store";
 
 /** Auth endpoints. Paths and shapes match `server/modules/auth/auth.routes.js`. */
 
@@ -103,6 +104,7 @@ export const authApi = baseApi.injectEndpoints({
         const { refreshToken } = useAuthStore.getState();
         // Sign out locally first so the UI never waits on the network.
         await useAuthStore.getState().clearSession();
+        useCorporateProfileStore.getState().setPersonal();
         api.dispatch(baseApi.util.resetApiState());
         await baseQuery({
           url: PATHS.auth.logout,

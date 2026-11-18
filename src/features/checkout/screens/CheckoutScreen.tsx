@@ -14,6 +14,9 @@ import {
   useReserveBookingMutation,
   useTicketBookingMutation,
 } from "../api/bookingsApi";
+import { useApprovalGateQuery } from "@/features/corporate/api/corporateApi";
+import { useCorporateProfileStore } from "@/features/corporate/store/corporateProfile.store";
+import { CorporateGate } from "../components/CorporateGate";
 import type { PayMethod } from "../api/types";
 import { formatMinor, isBookingTicketed, parsePriceChangedError, type PriceChangedDetails } from "../lib/checkoutDisplay";
 import { emptyHotelGuests, hotelStayOf, hotelTravellerSnapshot, validateHotelGuests, type HotelGuestsForm as HotelForm } from "../lib/hotelStay";
@@ -56,6 +59,8 @@ export function CheckoutScreen() {
   const { data: booking, isLoading, error, refetch } = useGetBookingQuery(bookingId, { skip: !bookingId });
   const { data: profile, isLoading: profileLoading } = useMyProfileQuery();
   const { data: companions = [] } = useMyCompanionsQuery();
+  const { data: gate, refetch: refetchGate } = useApprovalGateQuery(bookingId, { skip: !bookingId });
+  const corporateMode = useCorporateProfileStore((s) => s.mode === "CORPORATE");
 
   const [pay] = usePayBookingMutation();
   const [reserve] = useReserveBookingMutation();
@@ -88,9 +93,9 @@ export function CheckoutScreen() {
 
   useEffect(() => {
     if (!booking) return;
-    const methods = availableMethods(booking);
+    const methods = availableMethods(booking, corporateMode);
     if (!methods.includes(method)) setMethod(methods[0] ?? "card");
-  }, [booking, method]);
+  }, [booking, method, corporateMode]);
 
   const payableMinor = useMemo(() => {
     if (!booking) return 0;
@@ -121,6 +126,8 @@ export function CheckoutScreen() {
   const hasPaid = Boolean(booking.payments?.some((p) => p.status === "CAPTURED" || p.status === "AUTHORIZED"));
   const pending = booking.payments?.find((p) => p.status === "PENDING");
   const pendingTransfer = pending?.metadata?.consumerNumber ? pending.metadata : null;
+  /** Company bookings can't be paid until approved (same rule as web). */
+  const corporateBlocked = Boolean(gate?.corporate && !gate.canProceed);
 
   /** Returns true when the error was a price change (handled by the alert). */
   const handleError = (err: unknown) => {
@@ -145,6 +152,7 @@ export function CheckoutScreen() {
   async function onPay() {
     setMessage(null);
     if (priceChange) return setMessage("Accept the updated price before continuing.");
+    if (corporateBlocked) return setMessage("This company booking needs approval before payment.");
     if (isQuoted) {
       const problem = validateDetails();
       if (problem) return setMessage(problem);
@@ -261,6 +269,17 @@ export function CheckoutScreen() {
 
       {ticketed ? <TicketView booking={booking} stay={stay} /> : null}
 
+      {gate?.corporate && !ticketed ? (
+        <CorporateGate
+          bookingId={booking.id}
+          gate={gate}
+          onChange={() => {
+            refetchGate();
+            refetch();
+          }}
+        />
+      ) : null}
+
       {isQuoted ? (
         <>
           {stay && hotelForm ? (
@@ -290,6 +309,7 @@ export function CheckoutScreen() {
             accountNumber={accountNumber}
             setAccountNumber={setAccountNumber}
             disabled={Boolean(busy)}
+            corporate={corporateMode}
           />
         </>
       ) : null}
@@ -336,7 +356,7 @@ export function CheckoutScreen() {
             label={`Pay ${formatMinor(payableMinor, booking.currency)}`}
             onPress={onPay}
             loading={busy === "pay"}
-            disabled={Boolean(busy) || Boolean(priceChange)}
+            disabled={Boolean(busy) || Boolean(priceChange) || corporateBlocked}
           />
           {!stay && supplierCap?.canReserve ? (
             <Button
