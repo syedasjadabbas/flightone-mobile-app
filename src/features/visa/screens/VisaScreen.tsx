@@ -1,19 +1,22 @@
-import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack } from "expo-router";
-import { Button, Card, ListRow, Notice, Pill, Screen, Tag, TextField } from "@/core/components";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Button, Card, EmptyState, Notice, PageHeader, Pill, Screen, SectionLabel, TextField, TINT } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
-import { space, type } from "@/core/theme/tokens";
+import { colors, fonts, space, type } from "@/core/theme/tokens";
 import { useProfileQuery } from "@/features/profile/api/profileApi";
+import { ToneTag, type Tone } from "@/features/vault/components/ToneTag";
 import {
   useAssessVisaMutation,
   useCreateVisaApplicationMutation,
   useEscalateVisaMutation,
   useVisaApplicationsQuery,
   useVisaCapabilityQuery,
+  type VisaApplication,
   type VisaAssessment,
-  type VisaCategory,
 } from "../api/visaApi";
+import { CATEGORY_LABEL, VerdictCard } from "../components/VerdictCard";
 
 const QUICK_DESTINATIONS = [
   { code: "AE", label: "UAE" },
@@ -24,57 +27,39 @@ const QUICK_DESTINATIONS = [
   { code: "MY", label: "Malaysia" },
 ];
 const PURPOSES = ["Tourism", "Business", "Umrah", "Visiting family", "Transit"];
-const CATEGORY_LABEL: Record<VisaCategory, string> = {
-  VISA_FREE: "Visa-free",
-  VOA: "Visa on arrival",
-  E_VISA: "e-Visa",
-  EMBASSY: "Embassy visa",
-  UNKNOWN: "Unknown",
-};
 const iso2 = (s: string) => /^[A-Z]{2}$/.test(s);
 
-function ResultCard({ a }: { a: VisaAssessment }) {
-  const req = a.requirement;
-  const items = a.checklist?.items ?? [];
-  const found = items.filter((i) => i.presentHint).length;
+/** "IN_PROCESS" → "In process". */
+const statusLabel = (s: string) => s.toLowerCase().replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+function statusTone(s: string): Tone {
+  const u = s.toUpperCase();
+  if (/APPROV|ISSUED|COMPLET|GRANT/.test(u)) return "success";
+  if (/REJECT|DENI|CANCEL|EXPIR|FAIL/.test(u)) return "danger";
+  if (/SUBMIT|PROCESS|REVIEW|APPOINT|SCHEDUL/.test(u)) return "info";
+  if (/PENDING|DRAFT|OPEN|NEW/.test(u)) return "warn";
+  return "neutral";
+}
+
+function CaseRow({ a, last }: { a: VisaApplication; last: boolean }) {
+  const t = TINT.green;
   return (
-    <Card>
-      <View style={styles.row}>
-        {req ? <Tag label={CATEGORY_LABEL[req.category] ?? req.category} tone={req.category === "VISA_FREE" ? "success" : "accent"} /> : null}
-        <Tag label={a.isFact ? "Verified rule" : "Guidance"} tone={a.isFact ? "success" : "neutral"} />
+    <View style={[styles.case, !last && styles.divider]}>
+      <View style={[styles.badge, { backgroundColor: t.bg }]}>
+        <Ionicons name="airplane-outline" size={17} color={t.fg} />
       </View>
-      <Text style={type.body}>{a.avaSummary}</Text>
-      {req?.processingDaysMin != null ? (
-        <Text style={type.bodySoft}>
-          Processing: {req.processingDaysMin}
-          {req.processingDaysMax && req.processingDaysMax !== req.processingDaysMin ? `–${req.processingDaysMax}` : ""} days
+      <View style={styles.flex}>
+        <Text style={styles.caseTitle}>
+          {a.nationalityCode} → {a.destinationCode}
+          {a.category ? <Text style={styles.caseCat}>  ·  {CATEGORY_LABEL[a.category] ?? a.category}</Text> : null}
         </Text>
-      ) : null}
-      {req?.confidenceNote ? <Text style={type.bodySoft}>{req.confidenceNote}</Text> : null}
-      {a.missingInputs.length ? <Notice tone="info" message={`Ava still needs: ${a.missingInputs.join(", ")}`} /> : null}
-      {items.length ? (
-        <View style={styles.list}>
-          <Text style={type.label}>
-            Documents ({found}/{items.length} on file)
-          </Text>
-          {items.map((i) => (
-            <Text key={i.item} style={type.bodySoft}>
-              {i.presentHint ? "✓" : "○"} {i.item}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-      {a.heldVisa?.hasMatchingVisaOnFile ? (
-        <Notice tone="success" message={`You have a matching visa on file${a.heldVisa.expiresAt ? `, valid until ${a.heldVisa.expiresAt.slice(0, 10)}` : ""}.`} />
-      ) : null}
-      {(req?.transit ?? []).map((t) => (
-        <Text key={t.destinationCode} style={type.bodySoft}>
-          Transit {t.destinationCode}: {CATEGORY_LABEL[t.category] ?? t.category}
-          {t.transitNotes ? ` — ${t.transitNotes}` : ""}
+        <Text style={styles.caseDetail}>
+          {a.appointmentAt
+            ? `Appointment ${new Date(a.appointmentAt).toLocaleString()}${a.appointmentLocation ? ` · ${a.appointmentLocation}` : ""}`
+            : "Pending appointment"}
         </Text>
-      ))}
-      {req?.source ? <Text style={type.bodySoft}>Source: {req.source}</Text> : null}
-    </Card>
+      </View>
+      <ToneTag label={statusLabel(a.status)} tone={statusTone(a.status)} />
+    </View>
   );
 }
 
@@ -94,9 +79,12 @@ export function VisaScreen() {
   const [result, setResult] = useState<VisaAssessment | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
-  useEffect(() => {
-    if (profile?.nationality) setNationality(profile.nationality.toUpperCase());
-  }, [profile?.nationality]);
+  // Prefill the passport country from the profile once it loads (and if it changes).
+  const [seenNationality, setSeenNationality] = useState<string | null | undefined>(undefined);
+  if (profile?.nationality && profile.nationality !== seenNationality) {
+    setSeenNationality(profile.nationality);
+    setNationality(profile.nationality.toUpperCase());
+  }
 
   const transitList = transit
     .split(",")
@@ -137,59 +125,118 @@ export function VisaScreen() {
     }
   };
 
+  const cases = apps?.items ?? [];
+  const withAppointment = cases.filter((a) => a.appointmentAt).length;
+
   return (
     <Screen edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Visa" }} />
+      <PageHeader
+        icon="document-text"
+        tint="green"
+        subtitle="Check entry rules for your passport, then track your visa cases in one place."
+        stats={[
+          { value: nationality || "—", label: "Passport" },
+          { value: cases.length, label: "Visa cases" },
+          { value: withAppointment, label: "Appointments" },
+        ]}
+      />
       {capError ? <Notice message="Visa advisory is unavailable right now." /> : null}
       {capability && !capability.canLookup ? <Notice tone="info" message={capability.reasons[0] || "Visa lookups aren't configured yet."} /> : null}
 
-      <Card>
-        <Text style={type.h3}>Do I need a visa?</Text>
-        <View style={styles.row}>
+      <Card title="Do I need a visa?" subtitle="Pick a destination and purpose" icon="search" tint="green">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
           {QUICK_DESTINATIONS.map((d) => (
             <Pill key={d.code} label={d.label} selected={destination === d.code} onPress={() => setDestination(d.code)} />
           ))}
+        </ScrollView>
+        <View style={styles.route}>
+          <View style={styles.flex}>
+            <TextField
+              label="Passport"
+              hint="2-letter code"
+              value={nationality}
+              onChangeText={(t) => setNationality(t.toUpperCase().slice(0, 2))}
+              autoCapitalize="characters"
+              maxLength={2}
+            />
+          </View>
+          <View style={styles.arrow}>
+            <Ionicons name="arrow-forward" size={18} color={colors.inkFaint} />
+          </View>
+          <View style={styles.flex}>
+            <TextField
+              label="Destination"
+              hint="2-letter code"
+              value={destination}
+              onChangeText={(t) => setDestination(t.toUpperCase().slice(0, 2))}
+              autoCapitalize="characters"
+              maxLength={2}
+            />
+          </View>
         </View>
-        <TextField label="Destination" hint="2-letter code" value={destination} onChangeText={(t) => setDestination(t.toUpperCase().slice(0, 2))} autoCapitalize="characters" maxLength={2} />
-        <TextField label="Passport nationality" hint="2-letter code" value={nationality} onChangeText={(t) => setNationality(t.toUpperCase().slice(0, 2))} autoCapitalize="characters" maxLength={2} />
         <TextField label="Transit countries (optional)" hint="Comma separated, e.g. QA, TR" value={transit} onChangeText={setTransit} autoCapitalize="characters" />
-        <View style={styles.row}>
-          {PURPOSES.map((p) => (
-            <Pill key={p} label={p} selected={purpose === p} onPress={() => setPurpose(p)} />
-          ))}
+        <View style={styles.block}>
+          <Text style={type.label}>Purpose</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
+            {PURPOSES.map((p) => (
+              <Pill key={p} label={p} selected={purpose === p} onPress={() => setPurpose(p)} />
+            ))}
+          </ScrollView>
         </View>
         <Button label="Check requirements" onPress={onAssess} loading={assessState.isLoading} disabled={capability ? !capability.canLookup : false} />
-        <Text style={type.bodySoft}>Guidance only. Always confirm with the embassy or airline before you travel.</Text>
+        <Text style={styles.foot}>Guidance only. Always confirm with the embassy or airline before you travel.</Text>
       </Card>
 
       {message ? <Notice tone={message.tone} message={message.text} /> : null}
-      {result ? <ResultCard a={result} /> : null}
       {result ? (
-        <View style={styles.list}>
-          <Button label={`Open visa case for ${destination}`} variant="ghost" onPress={onOpenCase} loading={createState.isLoading} />
-          <Button label="Ask a visa specialist" variant="ghost" onPress={onEscalate} loading={escalateState.isLoading} />
-        </View>
+        <VerdictCard
+          a={result}
+          destination={destination}
+          nationality={nationality}
+          actions={
+            <View style={styles.actions}>
+              <Button label={`Open visa case for ${destination}`} onPress={onOpenCase} loading={createState.isLoading} />
+              <Button label="Ask a visa specialist" variant="ghost" onPress={onEscalate} loading={escalateState.isLoading} />
+            </View>
+          }
+        />
       ) : null}
 
-      <Card>
-        <Text style={type.h3}>Your visa cases</Text>
-        {apps?.items.length ? (
-          apps.items.map((a) => (
-            <ListRow
-              key={a.id}
-              title={`${a.nationalityCode} → ${a.destinationCode} · ${a.status.toLowerCase().replace(/_/g, " ")}`}
-              detail={a.appointmentAt ? `Appointment ${new Date(a.appointmentAt).toLocaleString()}${a.appointmentLocation ? ` · ${a.appointmentLocation}` : ""}` : "Pending appointment"}
-            />
-          ))
-        ) : (
-          <Text style={type.bodySoft}>No active applications.</Text>
-        )}
-      </Card>
+      <SectionLabel right={cases.length ? <Text style={styles.count}>{cases.length}</Text> : undefined}>Your visa cases</SectionLabel>
+      {cases.length ? (
+        <Card style={styles.list}>
+          {cases.map((a, i) => (
+            <CaseRow key={a.id} a={a} last={i === cases.length - 1} />
+          ))}
+        </Card>
+      ) : (
+        <EmptyState
+          icon="briefcase-outline"
+          tint="green"
+          title="No active applications"
+          body="Run a check above, then open a visa case to track documents and appointments here."
+        />
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  list: { gap: space.sm },
+  flex: { flex: 1, gap: 3 },
+  block: { gap: space.xs },
+  chipScroll: { marginHorizontal: -space.lg },
+  chips: { gap: space.sm, paddingHorizontal: space.lg },
+  route: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
+  arrow: { paddingTop: 38 },
+  foot: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.inkFaint, textAlign: "center" },
+  actions: { gap: space.sm },
+  count: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.inkFaint, marginRight: space.xs },
+  list: { paddingVertical: space.xs, gap: 0 },
+  case: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
+  divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  badge: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  caseTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.ink },
+  caseCat: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft },
+  caseDetail: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft },
 });

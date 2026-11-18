@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Button, Card, Notice, Screen, Tag, TextField } from "@/core/components";
+import { Stack, useLocalSearchParams } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
+import { Button, Card, EmptyState, Notice, PageHeader, Screen, Segmented, SectionLabel, TextField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { confirmAction } from "@/core/lib/confirm";
 import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
@@ -14,12 +16,12 @@ import {
   useRefundEligibilityQuery,
   useRequestCancellationMutation,
   useSubmitRefundCaseMutation,
-  type RefundCase,
+  type RefundableBooking,
 } from "../api/refundsApi";
-import { CaseProgressBar } from "../components/CaseProgressBar";
+import { AmountRow, CaseRow, StepHead, TintTag, isClosed } from "../components/RefundParts";
 import { ELIGIBILITY_LABEL, STATUS_LABEL, bookingWhat, bookingWhen, refundHint } from "../lib/bookingLabels";
-import { kindLabel } from "../lib/refundFormat";
-import { statusHeadline } from "../lib/caseStatus";
+
+type CaseView = "open" | "closed";
 
 /** Refunds & changes: pick a booking → see eligibility → request a refund or cancellation. */
 export function RefundsScreen() {
@@ -27,72 +29,146 @@ export function RefundsScreen() {
   const { data: bookings, isLoading } = useRefundableBookingsQuery();
   const { data: cases, error: casesError, refetch: refetchCases } = useRefundCasesQuery();
   const [selected, setSelected] = useState<string | null>(params.bookingId ?? null);
+  const [picking, setPicking] = useState(!params.bookingId);
+  const [view, setView] = useState<CaseView>("open");
 
-  useEffect(() => {
-    if (params.bookingId) setSelected(params.bookingId);
-  }, [params.bookingId]);
+  // Follow a new ?bookingId= (e.g. "Refund" tapped on a trip) without an effect.
+  const [seenParam, setSeenParam] = useState(params.bookingId);
+  if (params.bookingId !== seenParam) {
+    setSeenParam(params.bookingId);
+    if (params.bookingId) {
+      setSelected(params.bookingId);
+      setPicking(false);
+    }
+  }
 
-  const items = bookings?.items ?? [];
+  const items = useMemo(() => bookings?.items ?? [], [bookings]);
+  const allCases = useMemo(() => cases?.items ?? [], [cases]);
+  const openCases = allCases.filter((c) => !isClosed(c.status));
+  const closedCases = allCases.filter((c) => isClosed(c.status));
+  const shown = view === "open" ? openCases : closedCases;
+  const refundable = items.filter((b) => b.eligible).length;
+  const chosen = items.find((b) => b.bookingId === selected);
+  const showList = picking || !chosen;
+
+  const choose = (id: string) => {
+    void Haptics.selectionAsync().catch(() => {});
+    setSelected(id);
+    setPicking(false);
+  };
 
   return (
     <Screen edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Refunds & changes" }} />
+      <PageHeader
+        icon="receipt-outline"
+        tint="rose"
+        subtitle="Cancel a booking or claim a refund, then follow every step here."
+        stats={[
+          { value: openCases.length, label: "Open cases" },
+          { value: allCases.filter((c) => c.status === "COMPLETED").length, label: "Refunded" },
+          { value: isLoading ? "–" : refundable, label: "Refundable trips" },
+        ]}
+      />
+
+      <SectionLabel>Start a request</SectionLabel>
       <Card>
-        <Text style={type.h3}>1. Choose a booking</Text>
+        <StepHead
+          n={1}
+          title="Choose a booking"
+          done={!showList}
+          right={
+            !showList && items.length > 1 ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Change booking" onPress={() => setPicking(true)} hitSlop={10}>
+                <Text style={styles.link}>Change</Text>
+              </Pressable>
+            ) : null
+          }
+        />
         {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
-        {!isLoading && !items.length ? <Text style={type.bodySoft}>No bookings that can be refunded or cancelled right now.</Text> : null}
-        {items.map((b) => (
-          <Pressable
-            key={b.bookingId}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: selected === b.bookingId }}
-            accessibilityLabel={bookingWhat(b)}
-            onPress={() => setSelected(b.bookingId)}
-            style={[styles.option, selected === b.bookingId && styles.optionOn]}
-          >
-            <View style={styles.optionHead}>
-              <Text style={type.label}>{bookingWhat(b)}</Text>
-              <Tag label={ELIGIBILITY_LABEL[b.eligibilityStatus] ?? b.eligibilityStatus.toLowerCase()} tone={b.eligible ? "success" : "neutral"} />
+        {!isLoading && !items.length ? (
+          <View style={styles.inlineEmpty}>
+            <Ionicons name="airplane-outline" size={18} color={colors.inkFaint} />
+            <Text style={[type.bodySoft, styles.flex]}>No bookings can be refunded or cancelled right now.</Text>
+          </View>
+        ) : null}
+        {showList || !chosen
+          ? items.map((b) => <BookingOption key={b.bookingId} b={b} on={selected === b.bookingId} onPress={() => choose(b.bookingId)} />)
+          : <BookingOption b={chosen} on onPress={() => setPicking(true)} />}
+      </Card>
+
+      {selected && !picking ? <ActionPanel bookingId={selected} onDone={() => refetchCases()} /> : null}
+
+      <SectionLabel>Your refund cases</SectionLabel>
+      {casesError ? <Notice message={formatApiError(casesError)} /> : null}
+      {allCases.length ? (
+        <>
+          <Segmented<CaseView>
+            options={[
+              { value: "open", label: "In progress", count: openCases.length },
+              { value: "closed", label: "Closed", count: closedCases.length },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+          {shown.length ? (
+            <View style={styles.list}>
+              {shown.map((c) => (
+                <CaseRow key={c.id} c={c} />
+              ))}
             </View>
-            <Text style={type.bodySoft}>
-              {[bookingWhen(b), STATUS_LABEL[b.status] ?? b.status, b.trip?.reference].filter(Boolean).join(" · ")}
-            </Text>
-            <Text style={type.bodySoft}>{refundHint(b)}</Text>
-          </Pressable>
-        ))}
-      </Card>
-
-      {selected ? <ActionPanel bookingId={selected} onDone={() => refetchCases()} /> : null}
-
-      <Card>
-        <Text style={type.h3}>Your refund cases</Text>
-        {casesError ? <Notice message={formatApiError(casesError)} /> : null}
-        {cases?.items.length ? (
-          cases.items.map((c) => <CaseRow key={c.id} c={c} />)
-        ) : (
-          <Text style={type.bodySoft}>No refund cases on file.</Text>
-        )}
-      </Card>
+          ) : (
+            <EmptyState
+              icon={view === "open" ? "checkmark-done-outline" : "archive-outline"}
+              tint="rose"
+              title={view === "open" ? "Nothing in progress" : "No closed cases yet"}
+              body={view === "open" ? "All your refund requests are wrapped up." : "Finished refunds and cancellations will appear here."}
+            />
+          )}
+        </>
+      ) : !casesError ? (
+        <EmptyState
+          icon="receipt-outline"
+          tint="rose"
+          title="No refund cases yet"
+          body="When you request a refund or cancellation, you can track its progress here."
+        />
+      ) : null}
     </Screen>
   );
 }
 
-function CaseRow({ c }: { c: RefundCase }) {
+function BookingOption({ b, on, onPress }: { b: RefundableBooking; on: boolean; onPress: () => void }) {
+  const isStay = b.product === "HOTEL" || Boolean(b.trip?.hotelName);
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${kindLabel(c.kind)} case, ${statusHeadline(c.status)}`}
-      onPress={() => router.push({ pathname: "/refunds/[id]", params: { id: c.id } })}
-      style={styles.case}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={`${bookingWhat(b)}, ${refundHint(b)}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.option, on && styles.optionOn, pressed && styles.pressed]}
     >
-      <View style={styles.optionHead}>
-        <Text style={type.label}>
-          {kindLabel(c.kind)} · #{c.id.slice(-8).toUpperCase()}
-        </Text>
-        <Tag label={statusHeadline(c.status)} tone={c.status === "COMPLETED" ? "success" : "accent"} />
+      <View style={[styles.optIcon, on && styles.optIconOn]}>
+        <Ionicons name={isStay ? "bed-outline" : "airplane-outline"} size={18} color={on ? colors.accent : colors.inkSoft} />
       </View>
-      <CaseProgressBar status={c.status} />
-      <Text style={type.bodySoft}>Submitted {new Date(c.createdAt).toLocaleDateString()}</Text>
+      <View style={styles.optBody}>
+        <Text style={styles.optTitle} numberOfLines={2}>
+          {bookingWhat(b)}
+        </Text>
+        <Text style={styles.optMeta} numberOfLines={1}>
+          {[bookingWhen(b), STATUS_LABEL[b.status] ?? b.status, b.trip?.reference].filter(Boolean).join(" · ")}
+        </Text>
+        <View style={styles.optFoot}>
+          <TintTag
+            label={ELIGIBILITY_LABEL[b.eligibilityStatus] ?? b.eligibilityStatus.toLowerCase()}
+            tint={b.eligible ? "green" : b.eligibilityStatus === "NOT_ELIGIBLE" ? "slate" : "amber"}
+          />
+          <Text style={styles.optHint} numberOfLines={1}>
+            {refundHint(b)}
+          </Text>
+        </View>
+      </View>
+      <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={22} color={on ? colors.accent : colors.inkFaint} />
     </Pressable>
   );
 }
@@ -107,7 +183,14 @@ function ActionPanel({ bookingId, onDone }: { bookingId: string; onDone: () => v
   const [busy, setBusy] = useState<null | "refund" | "cancel">(null);
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
-  if (isFetching && !elig) return <ActivityIndicator color={colors.accent} />;
+  if (isFetching && !elig) {
+    return (
+      <Card>
+        <StepHead n={2} title="Review your options" />
+        <ActivityIndicator color={colors.accent} />
+      </Card>
+    );
+  }
   if (error) return <Notice message={formatApiError(error)} />;
   if (!elig) return null;
 
@@ -138,6 +221,7 @@ function ActionPanel({ bookingId, onDone }: { bookingId: string; onDone: () => v
               ? "Refund requested — an agent will confirm the amount."
               : "Refund requested. We'll update you as it progresses.",
       });
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onDone();
     } catch (err) {
       setMessage({ tone: "error", text: formatApiError(err) });
@@ -156,6 +240,7 @@ function ActionPanel({ bookingId, onDone }: { bookingId: string; onDone: () => v
         tone: "success",
         text: r.refundCase?.status === "REQUIRES_HUMAN" ? "Cancellation requested — an agent will confirm it." : "Cancellation requested.",
       });
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onDone();
     } catch (err) {
       setMessage({ tone: "error", text: formatApiError(err) });
@@ -164,38 +249,100 @@ function ActionPanel({ bookingId, onDone }: { bookingId: string; onDone: () => v
     }
   };
 
+  const hasBreakdown = Boolean(preview?.supplierPenaltyMinor || preview?.agencyFeeMinor || preview?.travelCreditMinor);
+
   return (
-    <Card>
-      <View style={styles.optionHead}>
-        <Text style={type.h3}>2. Your options</Text>
-        <Tag label={elig.eligible ? "Eligible" : "Restricted"} tone={elig.eligible ? "success" : "neutral"} />
-      </View>
-      {confirmed && preview?.refundableMinor != null ? (
-        <View style={styles.figure}>
-          <Text style={type.bodySoft}>Net refundable (confirmed)</Text>
-          <Text style={styles.amount}>{formatMinor(preview.refundableMinor, currency)}</Text>
-          {preview.supplierPenaltyMinor ? <Text style={type.bodySoft}>Airline/hotel penalty {formatMinor(preview.supplierPenaltyMinor, currency)}</Text> : null}
-          {preview.agencyFeeMinor ? <Text style={type.bodySoft}>Service fee {formatMinor(preview.agencyFeeMinor, currency)}</Text> : null}
-          {preview.travelCreditMinor ? <Text style={type.bodySoft}>Travel credit {formatMinor(preview.travelCreditMinor, currency)}</Text> : null}
-        </View>
-      ) : (
-        <Text style={type.body}>The refundable amount is confirmed by an agent for this booking.</Text>
-      )}
-      {preview?.processingTimelineNote ? <Text style={type.bodySoft}>{preview.processingTimelineNote}</Text> : null}
-      {elig.reason ? <Text style={type.bodySoft}>{elig.reason}</Text> : null}
-      <TextField label="Reason (optional)" value={reason} onChangeText={setReason} maxLength={500} />
-      {message ? <Notice tone={message.tone} message={message.text} /> : null}
-      <Button label="Request refund" onPress={onRefund} loading={busy === "refund"} disabled={Boolean(busy) || !elig.eligible} />
-      <Button label="Request cancellation" variant="ghost" onPress={onCancel} loading={busy === "cancel"} disabled={Boolean(busy)} />
-    </Card>
+    <>
+      <Card>
+        <StepHead n={2} title="Review your options" right={<TintTag label={elig.eligible ? "Eligible" : "Restricted"} tint={elig.eligible ? "green" : "slate"} />} />
+        {confirmed && preview?.refundableMinor != null ? (
+          <View style={styles.hero}>
+            <Text style={styles.heroLabel}>You get back</Text>
+            <Text style={styles.heroAmount}>{formatMinor(preview.refundableMinor, currency)}</Text>
+            <View style={styles.confirmedRow}>
+              <Ionicons name="shield-checkmark" size={14} color={colors.success} />
+              <Text style={styles.confirmedText}>Confirmed from fare rules</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.hero, styles.heroPending]}>
+            <Ionicons name="person-circle-outline" size={22} color="#b26a00" />
+            <Text style={[type.body, styles.flex]}>An agent confirms the refundable amount for this booking.</Text>
+          </View>
+        )}
+        {confirmed && hasBreakdown ? (
+          <View>
+            {preview?.supplierPenaltyMinor ? <AmountRow label="Airline/hotel penalty" value={`− ${formatMinor(preview.supplierPenaltyMinor, currency)}`} tone="minus" /> : null}
+            {preview?.agencyFeeMinor ? <AmountRow label="Service fee" value={`− ${formatMinor(preview.agencyFeeMinor, currency)}`} tone="minus" /> : null}
+            {preview?.travelCreditMinor ? <AmountRow label="Travel credit" value={formatMinor(preview.travelCreditMinor, currency)} /> : null}
+          </View>
+        ) : null}
+        {preview?.processingTimelineNote ? (
+          <View style={styles.noteRow}>
+            <Ionicons name="time-outline" size={16} color={colors.inkSoft} />
+            <Text style={[type.bodySoft, styles.flex]}>{preview.processingTimelineNote}</Text>
+          </View>
+        ) : null}
+        {elig.reason ? (
+          <View style={styles.noteRow}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.inkSoft} />
+            <Text style={[type.bodySoft, styles.flex]}>{elig.reason}</Text>
+          </View>
+        ) : null}
+      </Card>
+
+      <Card>
+        <StepHead n={3} title="Send your request" />
+        <TextField
+          label="Reason (optional)"
+          value={reason}
+          onChangeText={setReason}
+          maxLength={500}
+          multiline
+          placeholder="e.g. Change of plans, schedule change…"
+          style={styles.textarea}
+        />
+        {message ? <Notice tone={message.tone} message={message.text} /> : null}
+        <Button label="Request refund" onPress={onRefund} loading={busy === "refund"} disabled={Boolean(busy) || !elig.eligible} />
+        <Button label="Request cancellation" variant="ghost" onPress={onCancel} loading={busy === "cancel"} disabled={Boolean(busy)} />
+        <Text style={styles.fine}>{"You'll be asked to confirm before anything is sent."}</Text>
+      </Card>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  option: { borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: space.md, gap: 4 },
-  optionOn: { borderColor: colors.accent, borderWidth: 2, backgroundColor: colors.accentSoft },
-  optionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.sm },
-  case: { gap: space.sm, paddingVertical: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
-  figure: { gap: 2 },
-  amount: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
+  flex: { flex: 1 },
+  list: { gap: space.sm },
+  link: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.accent },
+  pressed: { opacity: 0.85 },
+  inlineEmpty: { flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.bg, borderRadius: radius.sm, padding: space.md },
+
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: space.md,
+  },
+  optionOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  optIcon: { width: 38, height: 38, borderRadius: 11, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
+  optIconOn: { backgroundColor: colors.card },
+  optBody: { flex: 1, gap: 3 },
+  optTitle: { fontFamily: fonts.displaySemi, fontSize: 15, color: colors.ink },
+  optMeta: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft },
+  optFoot: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 2 },
+  optHint: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.inkSoft },
+
+  hero: { backgroundColor: colors.successSoft, borderRadius: radius.md, padding: space.lg, gap: 4, alignItems: "flex-start" },
+  heroPending: { backgroundColor: "#fdf1dc", flexDirection: "row", alignItems: "center", gap: space.md },
+  heroLabel: { fontFamily: fonts.bodySemi, fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase", color: colors.success },
+  heroAmount: { fontFamily: fonts.display, fontSize: 30, color: colors.ink },
+  confirmedRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  confirmedText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.success },
+  noteRow: { flexDirection: "row", gap: space.sm, alignItems: "flex-start" },
+  textarea: { minHeight: 84, textAlignVertical: "top", paddingTop: space.md },
+  fine: { fontFamily: fonts.body, fontSize: 12, color: colors.inkFaint, textAlign: "center" },
 });

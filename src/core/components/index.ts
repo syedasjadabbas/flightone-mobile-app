@@ -9,3 +9,5 @@ export { TextField } from "./TextField";
 export { EmptyState } from "./EmptyState";
 export { ListRow } from "./ListRow";
 export { DateField } from "./DateField";
+export { PageHeader, Segmented, SectionLabel } from "./PageParts";
+export { TINT, type TintName } from "./tints";

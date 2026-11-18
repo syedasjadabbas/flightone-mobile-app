@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, router } from "expo-router";
-import { Button, Card, ListRow, Notice, Pill, Screen, TextField, DateField } from "@/core/components";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Button, Card, EmptyState, Notice, PageHeader, Screen, SectionLabel, Segmented, TINT, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { confirmAction } from "@/core/lib/confirm";
-import { colors, space, type } from "@/core/theme/tokens";
+import { colors, fonts, radius, shadow, space, type } from "@/core/theme/tokens";
 import { ChoiceRow } from "@/features/checkout/components/ChoiceRow";
 import {
   useCancelGroupRequestMutation,
@@ -18,6 +19,7 @@ import {
   type GroupDateFlexibility,
   type GroupType,
 } from "../api/groupsApi";
+import { FormSection, HeaderToggle, IconBadge, Row, SwitchRow, requestTag, shortDate } from "../components/GroupUi";
 import {
   FLEXIBILITY_LABELS,
   GROUP_TYPE_LABELS,
@@ -32,15 +34,28 @@ const TYPES = Object.keys(GROUP_TYPE_LABELS) as GroupType[];
 export function GroupsScreen() {
   const [tab, setTab] = useState<"request" | "groups">("request");
   const { data: groups = [] } = useGroupsQuery();
+  const { data: requests } = useGroupRequestsQuery();
   const [respond] = useRespondInvitationMutation();
   const invites = groups.filter((g) => g.myStatus === "INVITED");
+  const activeGroups = groups.length - invites.length;
+  const openRequests = (requests?.items ?? []).filter((r) => r.status !== "CANCELLED").length;
 
   return (
     <Screen edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Group travel" }} />
+      <PageHeader
+        icon="people-outline"
+        tint="teal"
+        subtitle={`Quotes for ${MIN_GROUP_PASSENGERS}+ travellers, and shared trip groups for family and friends.`}
+        stats={[
+          { value: openRequests, label: "Open quotes" },
+          { value: activeGroups, label: "Trip groups" },
+          { value: invites.length, label: "Invites" },
+        ]}
+      />
+
       {invites.map((g) => (
-        <Card key={g.id}>
-          <Text style={type.h3}>You're invited to {g.name}</Text>
+        <Card key={g.id} icon="mail-unread-outline" tint="teal" title={`You're invited to ${g.name}`} subtitle={GROUP_TYPE_LABELS[g.type] ?? g.type}>
           <View style={styles.row}>
             <Button label="Accept" style={styles.flex} onPress={() => respond({ id: g.id, accept: true })} />
             <Button
@@ -54,10 +69,15 @@ export function GroupsScreen() {
           </View>
         </Card>
       ))}
-      <View style={styles.row}>
-        <Pill label="Group request" selected={tab === "request"} onPress={() => setTab("request")} />
-        <Pill label="Trip groups" selected={tab === "groups"} onPress={() => setTab("groups")} />
-      </View>
+
+      <Segmented
+        options={[
+          { value: "request", label: "Group quotes", count: openRequests },
+          { value: "groups", label: "Trip groups", count: activeGroups },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
       {tab === "request" ? <RequestTab /> : <GroupsTab />}
     </Screen>
   );
@@ -68,6 +88,7 @@ function RequestTab() {
   const { data } = useGroupRequestsQuery();
   const [create, { isLoading }] = useCreateGroupRequestMutation();
   const [cancel] = useCancelGroupRequestMutation();
+  const [open, setOpen] = useState(false);
   const [f, setF] = useState({
     name: "",
     type: "LEISURE" as GroupType,
@@ -135,62 +156,92 @@ function RequestTab() {
       }).unwrap();
       setMsg({ tone: "success", text: "Request sent to our group desk. A consultant will quote fares and contact you — nothing is booked yet." });
       setF((p) => ({ ...p, name: "", destination: "", notes: "" }));
+      setOpen(false);
     } catch (err) {
       setMsg({ tone: "error", text: formatApiError(err) });
     }
   };
 
-  const toggle = (label: string, key: "seatingTogether" | "baggageRequired" | "airportTransfers" | "accommodationRequired") => (
-    <View style={styles.toggle}>
-      <Text style={type.body}>{label}</Text>
-      <Switch value={f[key]} onValueChange={set(key)} trackColor={{ true: colors.accent }} accessibilityLabel={label} />
-    </View>
-  );
+  const items = data?.items ?? [];
 
   return (
     <>
-      <Card>
-        <Text style={type.h3}>Request a group quote</Text>
-        <Text style={type.bodySoft}>For {MIN_GROUP_PASSENGERS} or more travellers. Our group desk prices it manually.</Text>
-        <TextField label="Trip name" value={f.name} onChangeText={set("name")} maxLength={200} />
-        <ChoiceRow label="Type" options={TYPES.map((t) => ({ value: t, label: GROUP_TYPE_LABELS[t] }))} value={f.type} onChange={set("type")} />
-        <View style={styles.row}>
-          <View style={styles.flex}>
-            <TextField label="From" value={f.origin} onChangeText={(t) => set("origin")(t.toUpperCase())} autoCapitalize="characters" maxLength={10} />
+      {open ? (
+        <Card icon="people-outline" tint="teal" title="Request a group quote" subtitle={`${MIN_GROUP_PASSENGERS}+ travellers · priced by our group desk`} right={<HeaderToggle open label="Request" onPress={() => setOpen(false)} />}>
+          <FormSection title="Trip">
+            <TextField label="Trip name" placeholder="e.g. Office Umrah 2027" value={f.name} onChangeText={set("name")} maxLength={200} />
+            <ChoiceRow label="Type" options={TYPES.map((t) => ({ value: t, label: GROUP_TYPE_LABELS[t] }))} value={f.type} onChange={set("type")} />
+            <View style={styles.row}>
+              <View style={styles.flex}>
+                <TextField label="From" value={f.origin} onChangeText={(t) => set("origin")(t.toUpperCase())} autoCapitalize="characters" maxLength={10} />
+              </View>
+              <View style={styles.flex}>
+                <TextField label="To" placeholder="JED" value={f.destination} onChangeText={(t) => set("destination")(t.toUpperCase())} autoCapitalize="characters" maxLength={10} />
+              </View>
+            </View>
+            <TextField label="Travellers" hint={`${MIN_GROUP_PASSENGERS}–500`} value={f.passengers} onChangeText={set("passengers")} keyboardType="number-pad" />
+          </FormSection>
+          <FormSection title="Dates">
+            <DateField label="Departure (optional)" value={f.departureDate} onChange={set("departureDate")} optional minimumDate={new Date()} />
+            <DateField label="Return (optional)" value={f.returnDate} onChange={set("returnDate")} optional minimumDate={new Date()} />
+            <ChoiceRow
+              label="Date flexibility"
+              options={(Object.keys(FLEXIBILITY_LABELS) as GroupDateFlexibility[]).map((k) => ({ value: k, label: FLEXIBILITY_LABELS[k] }))}
+              value={f.flexibility}
+              onChange={set("flexibility")}
+            />
+          </FormSection>
+          <FormSection title="Contact">
+            <TextField label="Contact name" value={f.contactName} onChangeText={set("contactName")} />
+            <TextField label="Contact email" value={f.contactEmail} onChangeText={set("contactEmail")} keyboardType="email-address" autoCapitalize="none" />
+            <TextField label="Contact phone (optional)" value={f.contactPhone} onChangeText={set("contactPhone")} keyboardType="phone-pad" />
+            <TextField label="Organisation (optional)" value={f.organization} onChangeText={set("organization")} />
+          </FormSection>
+          <FormSection title="Extras">
+            <View>
+              <SwitchRow label="Seat the group together" value={f.seatingTogether} onChange={set("seatingTogether")} />
+              <SwitchRow label="Checked baggage" value={f.baggageRequired} onChange={set("baggageRequired")} />
+              <SwitchRow label="Airport transfers" value={f.airportTransfers} onChange={set("airportTransfers")} />
+              <SwitchRow label="Hotel rooms" value={f.accommodationRequired} onChange={set("accommodationRequired")} />
+            </View>
+            <TextField label="Notes (optional)" value={f.notes} onChangeText={set("notes")} multiline maxLength={4000} />
+          </FormSection>
+          {msg ? <Notice tone={msg.tone} message={msg.text} /> : null}
+          <Button label="Send request" onPress={submit} loading={isLoading} />
+        </Card>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Request a group quote"
+          onPress={() => {
+            setMsg(null);
+            setOpen(true);
+          }}
+          style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
+        >
+          <View style={styles.ctaIcon}>
+            <Ionicons name="people" size={22} color={colors.onBtn} />
           </View>
-          <View style={styles.flex}>
-            <TextField label="To" value={f.destination} onChangeText={(t) => set("destination")(t.toUpperCase())} autoCapitalize="characters" maxLength={10} />
+          <View style={styles.flexText}>
+            <Text style={styles.ctaTitle}>Request a group quote</Text>
+            <Text style={styles.ctaBody}>For {MIN_GROUP_PASSENGERS}+ travellers. Our group desk prices it and gets back to you.</Text>
           </View>
-        </View>
-        <DateField label="Departure (optional)" value={f.departureDate} onChange={set("departureDate")} optional minimumDate={new Date()} />
-        <DateField label="Return (optional)" value={f.returnDate} onChange={set("returnDate")} optional minimumDate={new Date()} />
-        <ChoiceRow
-          label="Date flexibility"
-          options={(Object.keys(FLEXIBILITY_LABELS) as GroupDateFlexibility[]).map((k) => ({ value: k, label: FLEXIBILITY_LABELS[k] }))}
-          value={f.flexibility}
-          onChange={set("flexibility")}
-        />
-        <TextField label="Travellers" value={f.passengers} onChangeText={set("passengers")} keyboardType="number-pad" />
-        <TextField label="Contact name" value={f.contactName} onChangeText={set("contactName")} />
-        <TextField label="Contact email" value={f.contactEmail} onChangeText={set("contactEmail")} keyboardType="email-address" autoCapitalize="none" />
-        <TextField label="Contact phone (optional)" value={f.contactPhone} onChangeText={set("contactPhone")} keyboardType="phone-pad" />
-        <TextField label="Organisation (optional)" value={f.organization} onChangeText={set("organization")} />
-        {toggle("Seat the group together", "seatingTogether")}
-        {toggle("Checked baggage", "baggageRequired")}
-        {toggle("Airport transfers", "airportTransfers")}
-        {toggle("Hotel rooms", "accommodationRequired")}
-        <TextField label="Notes (optional)" value={f.notes} onChangeText={set("notes")} multiline maxLength={4000} />
-        {msg ? <Notice tone={msg.tone} message={msg.text} /> : null}
-        <Button label="Send request" onPress={submit} loading={isLoading} />
-      </Card>
-      <Card>
-        <Text style={type.h3}>Your requests</Text>
-        {data?.items.length ? (
-          data.items.map((r) => (
-            <ListRow
+          <Ionicons name="arrow-forward" size={20} color={colors.onBtn} />
+        </Pressable>
+      )}
+      {!open && msg ? <Notice tone={msg.tone} message={msg.text} /> : null}
+
+      <SectionLabel>Your requests</SectionLabel>
+      {items.length ? (
+        <Card>
+          {items.map((r, i) => (
+            <Row
               key={r.id}
-              title={`${r.name} · ${r.origin} → ${r.destination}`}
-              detail={`${r.passengerCount} travellers · ${r.status.toLowerCase().replace("_", " ")}${r.departureDate ? ` · ${r.departureDate.slice(0, 10)}` : ""}`}
+              last={i === items.length - 1}
+              leading={<IconBadge icon="airplane-outline" tint={r.status === "CANCELLED" ? "slate" : "teal"} />}
+              title={r.name}
+              detail={[`${r.origin} → ${r.destination}`, `${r.passengerCount} travellers`, r.departureDate ? shortDate(r.departureDate) : null].filter(Boolean).join(" · ")}
+              tag={requestTag(r.status)}
               actionLabel={r.status === "CANCELLED" ? undefined : "Cancel"}
               onAction={
                 r.status === "CANCELLED"
@@ -200,11 +251,11 @@ function RequestTab() {
                     }
               }
             />
-          ))
-        ) : (
-          <Text style={type.bodySoft}>No requests yet.</Text>
-        )}
-      </Card>
+          ))}
+        </Card>
+      ) : (
+        <EmptyState icon="document-text-outline" tint="teal" title="No requests yet" body="Quotes you request appear here with their status." />
+      )}
     </>
   );
 }
@@ -216,66 +267,102 @@ function GroupsTab() {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<GroupType>("FAMILY");
   const [code, setCode] = useState("");
+  const [form, setForm] = useState<"create" | "join" | null>(null);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const active = groups.filter((g) => g.myStatus !== "INVITED");
+  const open = (id: string) => router.push({ pathname: "/groups/[groupId]", params: { groupId: id } });
 
   return (
     <>
-      <Card>
-        <Text style={type.h3}>Your trip groups</Text>
-        {active.length ? (
-          active.map((g) => (
-            <ListRow
-              key={g.id}
-              title={g.name}
-              detail={`${GROUP_TYPE_LABELS[g.type] ?? g.type}${g.myRole ? ` · ${g.myRole.toLowerCase()}` : ""}`}
-              actionLabel="Open"
-              tone="accent"
-              onAction={() => router.push({ pathname: "/groups/[groupId]", params: { groupId: g.id } })}
-            />
-          ))
-        ) : (
-          <Text style={type.bodySoft}>No trip groups yet. Create one or join with an invite code.</Text>
-        )}
-      </Card>
       {msg ? <Notice tone={msg.tone} message={msg.text} /> : null}
-      <Card>
-        <Text style={type.h3}>Create a group</Text>
-        <TextField label="Group name" value={name} onChangeText={setName} maxLength={200} />
-        <ChoiceRow label="Type" options={TYPES.map((t) => ({ value: t, label: GROUP_TYPE_LABELS[t] }))} value={kind} onChange={setKind} />
-        <Button
-          label="Create group"
-          loading={createState.isLoading}
-          disabled={!name.trim()}
-          onPress={async () => {
-            try {
-              const g = await create({ name: name.trim(), type: kind }).unwrap();
-              setName("");
-              router.push({ pathname: "/groups/[groupId]", params: { groupId: g.id } });
-            } catch (err) {
-              setMsg({ tone: "error", text: formatApiError(err) });
-            }
-          }}
+
+      {active.length ? (
+        <>
+          <SectionLabel>Your trip groups</SectionLabel>
+          <Card>
+            {active.map((g, i) => {
+              const role = g.myMembership?.role ?? g.myRole;
+              const lead = role === "ORGANIZER" || role === "ADMIN";
+              return (
+                <Row
+                  key={g.id}
+                  last={i === active.length - 1}
+                  leading={<IconBadge icon="people" tint="teal" />}
+                  title={g.name}
+                  detail={[GROUP_TYPE_LABELS[g.type] ?? g.type, `since ${shortDate(g.createdAt)}`].join(" · ")}
+                  tag={role ? { label: lead ? "Organizer" : role.charAt(0) + role.slice(1).toLowerCase(), tint: lead ? "teal" : "slate" } : null}
+                  onPress={() => open(g.id)}
+                />
+              );
+            })}
+          </Card>
+        </>
+      ) : (
+        <EmptyState
+          icon="people-outline"
+          tint="teal"
+          title="No trip groups yet"
+          body="Create one to share itineraries, announcements and polls — or join with an invite code."
         />
+      )}
+
+      <SectionLabel>Start or join</SectionLabel>
+      <Card
+        icon="add-circle-outline"
+        tint="teal"
+        title="Create a group"
+        subtitle="You'll be the organizer"
+        right={<HeaderToggle open={form === "create"} label="Create" onPress={() => setForm(form === "create" ? null : "create")} />}
+      >
+        {form === "create" ? (
+          <>
+            <TextField label="Group name" value={name} onChangeText={setName} maxLength={200} />
+            <ChoiceRow label="Type" options={TYPES.map((t) => ({ value: t, label: GROUP_TYPE_LABELS[t] }))} value={kind} onChange={setKind} />
+            <Button
+              label="Create group"
+              loading={createState.isLoading}
+              disabled={!name.trim()}
+              onPress={async () => {
+                try {
+                  const g = await create({ name: name.trim(), type: kind }).unwrap();
+                  setName("");
+                  setForm(null);
+                  open(g.id);
+                } catch (err) {
+                  setMsg({ tone: "error", text: formatApiError(err) });
+                }
+              }}
+            />
+          </>
+        ) : null}
       </Card>
-      <Card>
-        <Text style={type.h3}>Join with an invite code</Text>
-        <TextField label="Invite code" value={code} onChangeText={(t) => setCode(t.toUpperCase())} autoCapitalize="characters" maxLength={64} />
-        <Button
-          label="Join group"
-          variant="ghost"
-          loading={joinState.isLoading}
-          disabled={!code.trim()}
-          onPress={async () => {
-            try {
-              await join({ inviteCode: code.trim() }).unwrap();
-              setCode("");
-              setMsg({ tone: "success", text: "You've joined the group." });
-            } catch (err) {
-              setMsg({ tone: "error", text: formatApiError(err) });
-            }
-          }}
-        />
+      <Card
+        icon="key-outline"
+        tint="slate"
+        title="Join with an invite code"
+        subtitle="Ask the organizer for the code"
+        right={<HeaderToggle open={form === "join"} label="Join" icon="enter-outline" onPress={() => setForm(form === "join" ? null : "join")} />}
+      >
+        {form === "join" ? (
+          <>
+            <TextField label="Invite code" value={code} onChangeText={(t) => setCode(t.toUpperCase())} autoCapitalize="characters" maxLength={64} />
+            <Button
+              label="Join group"
+              loading={joinState.isLoading}
+              disabled={!code.trim()}
+              onPress={async () => {
+                try {
+                  await join({ inviteCode: code.trim() }).unwrap();
+                  setCode("");
+                  setForm(null);
+                  setMsg({ tone: "success", text: "You've joined the group." });
+                } catch (err) {
+                  setMsg({ tone: "error", text: formatApiError(err) });
+                }
+              }}
+            />
+          </>
+        ) : null}
       </Card>
     </>
   );
@@ -284,6 +371,19 @@ function GroupsTab() {
 const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   flex: { flex: 1, minWidth: 120 },
-  toggle: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: 44 },
+  flexText: { flex: 1, gap: 2 },
+  pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
+  cta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    backgroundColor: TINT.teal.fg,
+    borderRadius: radius.md + 4,
+    padding: space.lg,
+    ...shadow,
+    shadowOpacity: 0.12,
+  },
+  ctaIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
+  ctaTitle: { fontFamily: fonts.displaySemi, fontSize: 16, color: colors.onBtn },
+  ctaBody: { ...type.bodySoft, fontSize: 13, lineHeight: 18, color: "rgba(255,255,255,0.85)" },
 });
-

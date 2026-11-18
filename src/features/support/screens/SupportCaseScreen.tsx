@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Button, Card, Notice, Screen, Tag, TextField } from "@/core/components";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Button, Card, ListRow, Notice, Screen, TINT, TextField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
-import { colors, radius, space, type } from "@/core/theme/tokens";
+import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
 import { useMyEscalationQuery } from "../api/escalationsApi";
+import { Bubble, Timeline, TintTag, statusTint, triggerIcon } from "../components/SupportParts";
 import { escalationStatusLabel, triggerLabel } from "../lib/caseContent";
 import { customerRoutingStatusMessage } from "../lib/routingDisplay";
 
@@ -14,6 +16,11 @@ const STEPS = [
   { status: "IN_PROGRESS", label: "In progress" },
   { status: "RESOLVED", label: "Resolved" },
 ];
+
+function timeOf(iso: string) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 export function SupportCaseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -40,76 +47,124 @@ export function SupportCaseScreen() {
   const stepIndex = STEPS.findIndex((s) => s.status === c.status);
   const messages = c.contextSnapshot?.messages ?? [];
   const ref = c.id.slice(-8).toUpperCase();
+  const tint = statusTint(c.status);
+  const t = TINT[tint];
+
+  const events = [
+    { key: "opened", title: "Case opened", when: new Date(c.createdAt).toLocaleString(), tint: "blue" as const },
+    ...(c.updatedAt !== c.createdAt && c.updatedAt !== c.resolvedAt
+      ? [{ key: "updated", title: "Last update", when: new Date(c.updatedAt).toLocaleString(), tint: "slate" as const }]
+      : []),
+    ...(c.resolvedAt ? [{ key: "resolved", title: "Resolved", when: new Date(c.resolvedAt).toLocaleString(), tint: "green" as const }] : []),
+  ];
 
   return (
     <Screen edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: `Case #${ref}` }} />
+
       <Card>
-        <Tag label={escalationStatusLabel(c.status)} tone={c.status === "RESOLVED" ? "success" : "accent"} />
-        <Text style={type.h2}>{triggerLabel(c.trigger)}</Text>
-        {c.status === "RESOLVED" || c.status === "CANCELLED" ? null : (
-          <Text style={type.body}>{customerRoutingStatusMessage({ status: c.status, assignedToUserId: c.assignedToUserId, routing: c.routing })}</Text>
-        )}
+        <View style={styles.topRow}>
+          <TintTag label={escalationStatusLabel(c.status)} tint={tint} />
+          <Text style={styles.ref}>#{ref}</Text>
+        </View>
+        <View style={styles.titleRow}>
+          <View style={[styles.icon, { backgroundColor: t.bg }]}>
+            <Ionicons name={triggerIcon(c.trigger)} size={20} color={t.fg} />
+          </View>
+          <Text style={[type.h2, styles.flex]}>{triggerLabel(c.trigger)}</Text>
+        </View>
         {c.status !== "CANCELLED" ? (
-          <View style={styles.steps}>
-            {STEPS.map((s, i) => (
-              <View key={s.status} style={styles.step}>
-                <View style={[styles.bar, i <= stepIndex && styles.barOn]} />
-                <Text style={[type.bodySoft, i <= stepIndex && styles.on]}>{s.label}</Text>
-              </View>
-            ))}
+          <View style={styles.steps} accessibilityLabel={`Progress: ${STEPS[stepIndex]?.label ?? escalationStatusLabel(c.status)}`}>
+            {STEPS.map((s, i) => {
+              const done = i < stepIndex || c.status === "RESOLVED";
+              const current = i === stepIndex && c.status !== "RESOLVED";
+              return (
+                <View key={s.status} style={styles.step}>
+                  <View style={[styles.bar, done && styles.barDone, current && styles.barOn]} />
+                  <Text style={[styles.stepLabel, (done || current) && styles.stepOn]} numberOfLines={1}>
+                    {s.label}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ) : null}
+        {c.status === "RESOLVED" || c.status === "CANCELLED" ? null : (
+          <View style={styles.infoRow}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.inkSoft} style={styles.infoIcon} />
+            <Text style={[type.bodySoft, styles.flex]}>
+              {customerRoutingStatusMessage({ status: c.status, assignedToUserId: c.assignedToUserId, routing: c.routing })}
+            </Text>
+          </View>
+        )}
         {c.resolutionNote ? <Notice tone="success" message={c.resolutionNote} /> : null}
       </Card>
 
-      <Card>
-        <Text style={type.h3}>Conversation at handoff</Text>
+      <Card title="Conversation at handoff" subtitle={messages.length ? `${messages.length} messages shared with the consultant` : undefined} icon="chatbubbles-outline" tint="blue">
         {messages.length ? (
-          messages.map((m) => (
-            <View key={m.id} style={[styles.msg, m.role === "user" ? styles.mine : styles.theirs]}>
-              <Text style={type.bodySoft}>{m.role === "user" ? "You" : "Ava"}</Text>
-              <Text style={type.body}>{m.content}</Text>
-            </View>
-          ))
+          <View style={styles.chat}>
+            {messages.map((m) => (
+              <Bubble key={m.id} mine={m.role === "user"} author={m.role === "user" ? "You" : "Ava"} text={m.content} time={timeOf(m.createdAt)} />
+            ))}
+          </View>
         ) : (
           <Text style={type.bodySoft}>No messages captured.</Text>
         )}
       </Card>
 
-      <Card>
-        <Text style={type.h3}>Follow up with Ava</Text>
-        <TextField label="Message" value={followUp} onChangeText={setFollowUp} multiline />
+      <Card title="Activity" icon="time-outline" tint="slate">
+        <Timeline items={events} />
+        {c.bookingId ? (
+          <ListRow
+            icon="airplane-outline"
+            tint="blue"
+            title="Open booking"
+            detail="See the trip this case is about"
+            onPress={() => router.push({ pathname: "/checkout/[bookingId]", params: { bookingId: c.bookingId! } })}
+            last
+          />
+        ) : null}
+      </Card>
+
+      <Card title="Follow up with Ava" subtitle="Ava picks up with this case's context." icon="sparkles-outline" tint="violet">
+        <View style={styles.composer}>
+          <View style={styles.flex}>
+            <TextField
+              label="Message"
+              value={followUp}
+              onChangeText={setFollowUp}
+              multiline
+              placeholder="Add a detail or ask for an update…"
+              style={styles.input}
+            />
+          </View>
+        </View>
         <Button
           label="Send to Ava"
           disabled={!followUp.trim()}
           onPress={() => router.navigate({ pathname: "/ava", params: { q: `About support case ${ref}: ${followUp.trim()}` } })}
         />
       </Card>
-
-      <Card>
-        <Text style={type.bodySoft}>Opened {new Date(c.createdAt).toLocaleString()}</Text>
-        <Text style={type.bodySoft}>Updated {new Date(c.updatedAt).toLocaleString()}</Text>
-        {c.resolvedAt ? <Text style={type.bodySoft}>Resolved {new Date(c.resolvedAt).toLocaleString()}</Text> : null}
-        {c.bookingId ? (
-          <Button
-            label="Open booking"
-            variant="ghost"
-            onPress={() => router.push({ pathname: "/checkout/[bookingId]", params: { bookingId: c.bookingId! } })}
-          />
-        ) : null}
-      </Card>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  ref: { fontFamily: fonts.bodySemi, fontSize: 13, letterSpacing: 0.6, color: colors.inkFaint },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: space.md },
+  icon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   steps: { flexDirection: "row", gap: space.xs },
   step: { flex: 1, gap: 4 },
   bar: { height: 4, borderRadius: 2, backgroundColor: colors.bgGlow },
+  barDone: { backgroundColor: colors.success },
   barOn: { backgroundColor: colors.accent },
-  on: { color: colors.ink },
-  msg: { borderRadius: radius.sm, padding: space.md, gap: 2 },
-  mine: { backgroundColor: colors.accentSoft },
-  theirs: { backgroundColor: colors.bg },
+  stepLabel: { fontFamily: fonts.body, fontSize: 11, color: colors.inkFaint },
+  stepOn: { fontFamily: fonts.bodyMedium, color: colors.ink },
+  infoRow: { flexDirection: "row", gap: space.sm, backgroundColor: colors.bg, borderRadius: radius.sm, padding: space.md },
+  infoIcon: { marginTop: 2 },
+  chat: { gap: space.md },
+  composer: { flexDirection: "row" },
+  input: { minHeight: 80, textAlignVertical: "top", paddingTop: space.md },
 });
