@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -46,6 +46,7 @@ export function DateField({
   hint,
   optional = false,
   error,
+  trigger,
 }: {
   label: string;
   value: string;
@@ -56,6 +57,8 @@ export function DateField({
   hint?: string;
   optional?: boolean;
   error?: string;
+  /** Custom tappable instead of the default field (same native picker). */
+  trigger?: (open: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Date>(() => toDate(value, mode));
@@ -93,7 +96,11 @@ export function DateField({
   };
 
   return (
-    <View style={styles.wrap}>
+    <View style={trigger ? styles.flexWrap : styles.wrap}>
+      {trigger ? (
+        trigger(openPicker)
+      ) : (
+        <>
       <Text style={type.label}>{label}</Text>
       <Pressable
         accessibilityRole="button"
@@ -113,6 +120,8 @@ export function DateField({
           <Text style={styles.clear}>Clear</Text>
         </Pressable>
       ) : null}
+        </>
+      )}
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Close picker" />
@@ -150,6 +159,7 @@ export function DateField({
 }
 
 const styles = StyleSheet.create({
+  flexWrap: { flex: 1 },
   wrap: { gap: space.xs },
   field: {
     minHeight: 48,
