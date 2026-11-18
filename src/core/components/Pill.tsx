@@ -14,6 +14,7 @@ export function Pill({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected }}
       onPress={onPress}
       hitSlop={6}

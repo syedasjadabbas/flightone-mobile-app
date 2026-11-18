@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Tag } from "@/core/components";
+import { Button, Notice, Tag } from "@/core/components";
+import { useStartCheckout } from "@/features/checkout/hooks/useStartCheckout";
 import { colors, fonts, radius, shadow, space, type } from "@/core/theme/tokens";
 import { angleLabel, formatDuration, formatStops, stars } from "../lib/format";
 import type { OfferCard } from "../types";
@@ -12,13 +13,17 @@ export function OfferCardView({ offer }: { offer: OfferCard }) {
   const f = offer.flight;
   const h = offer.hotel;
 
+  // Only the summary toggles; the details (with the Book button) sit outside the
+  // pressable so a button is never nested inside another button.
   return (
+    <View style={styles.card}>
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ expanded: open }}
       accessibilityLabel={`${offer.title}, ${offer.price}`}
+      accessibilityHint={open ? "Hides details" : "Shows details and booking"}
       onPress={() => setOpen((v) => !v)}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.summary, pressed && styles.pressed]}
     >
       <View style={styles.topRow}>
         {angle ? <Tag label={angle} /> : <View />}
@@ -57,6 +62,7 @@ export function OfferCardView({ offer }: { offer: OfferCard }) {
           {h?.nights ? <Text style={styles.meta}>per night</Text> : f?.cabin ? <Text style={styles.meta}>{f.cabin}</Text> : null}
         </View>
       </View>
+    </Pressable>
 
       {open ? (
         <View style={styles.details}>
@@ -97,14 +103,30 @@ export function OfferCardView({ offer }: { offer: OfferCard }) {
             </View>
           ) : null}
           {offer.marketPrice ? <Text style={styles.meta}>Market price {offer.marketPrice}</Text> : null}
-          <Text style={styles.meta}>Booking from the app arrives in the next phase.</Text>
+          <BookAction offer={offer} />
         </View>
       ) : null}
-    </Pressable>
+    </View>
+  );
+}
+
+/** "Book" (quote → checkout), or why this fare can't be booked online. */
+function BookAction({ offer }: { offer: OfferCard }) {
+  const { start, isLoading, error, blocked } = useStartCheckout(offer);
+  return (
+    <View style={styles.book}>
+      {blocked ? (
+        <Notice tone="info" message={blocked.reason} />
+      ) : (
+        <Button label={`Book for ${offer.price}`} onPress={start} loading={isLoading} />
+      )}
+      {error && !blocked ? <Notice message={error} /> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  book: { gap: space.sm, marginTop: space.xs },
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
@@ -114,6 +136,7 @@ const styles = StyleSheet.create({
     gap: space.md,
     ...shadow,
   },
+  summary: { gap: space.md },
   pressed: { opacity: 0.92 },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   route: { flexDirection: "row", alignItems: "center", gap: space.sm },

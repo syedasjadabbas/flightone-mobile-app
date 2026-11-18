@@ -1,1 +1,1 @@
-export { BookPlaceholder as default } from "@/features/placeholders/screens";
+export { BookScreen as default } from "@/features/book/screens/BookScreen";

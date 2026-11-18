@@ -14,9 +14,12 @@ export default function AppLayout() {
         headerTitleStyle: { fontFamily: fonts.displaySemi, color: colors.ink },
         headerTintColor: colors.ink,
         contentStyle: { backgroundColor: colors.bg },
+        headerBackTitle: "Back",
+        headerBackButtonDisplayMode: "minimal",
       }}
     >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "FlightOne" }} />
+      <Stack.Screen name="checkout/[bookingId]" options={{ title: "Checkout" }} />
     </Stack>
   );
 }

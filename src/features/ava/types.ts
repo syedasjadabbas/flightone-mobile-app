@@ -62,8 +62,27 @@ export interface OfferCard {
   badges: string[];
   unitsLeft?: number;
   roundTrip?: boolean;
+  returnDate?: string;
   flight?: OfferCardFlight;
   hotel?: OfferCardHotel;
+  /** Server-side snapshot the quote is built from (never the card's price). */
+  supplierOfferSnapshotId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Multi-city / separate-ticket trip card (only what bookability reads). */
+export interface ItinerarySummary {
+  id: string;
+  construction: "single_ticket" | "multiple_tickets";
+  totalPrice: string;
+  legs?: Array<{
+    originCode: string;
+    destinationCode: string;
+    airlineCode: string;
+    departureDate?: string;
+    flightNumber?: string;
+    bookable?: boolean;
+  }>;
 }
 
 export interface SearchResultsPanel {

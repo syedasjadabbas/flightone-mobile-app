@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { colors, fonts, radius, shadow, space, type } from "@/core/theme/tokens";
 import { Composer } from "../components/Composer";
@@ -15,6 +16,15 @@ export function AvaScreen() {
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const starters = useMemo(() => starterRoutes(), []);
   const last = messages[messages.length - 1];
+
+  // A search handed over from the Book tab (`/ava?q=…`): send it once, then clear the param.
+  const { q } = useLocalSearchParams<{ q?: string }>();
+  useEffect(() => {
+    if (!q || busy) return;
+    router.setParams({ q: undefined });
+    send(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   // While Ava is thinking, keep the bottom in view; when her answer lands,
   // scroll to the top of it so the reply is read before the result cards.
