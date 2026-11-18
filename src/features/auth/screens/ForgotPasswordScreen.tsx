@@ -42,6 +42,7 @@ export function ForgotPasswordScreen() {
             control={control}
             name="email"
             label="Email"
+            icon="mail-outline"
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"

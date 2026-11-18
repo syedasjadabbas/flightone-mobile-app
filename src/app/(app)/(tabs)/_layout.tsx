@@ -1,36 +1,46 @@
-import type { ColorValue } from "react-native";
-import { Tabs } from "expo-router";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { NativeTabs } from "expo-router/native-tabs";
 import { colors, fonts } from "@/core/theme/tokens";
 
-type IconName = keyof typeof Ionicons.glyphMap;
-
-/** Filled icon when the tab is active, outline otherwise. */
-function tabIcon(name: string) {
-  return function TabIcon({ color, focused, size }: { color: ColorValue; focused: boolean; size: number }) {
-    return <Ionicons name={(focused ? name : `${name}-outline`) as IconName} color={color as string} size={size - 2} />;
-  };
-}
+/**
+ * The bottom bar is the system's own tab bar: Liquid Glass on iOS 26+,
+ * frosted bar on older iOS, Material bar on Android. It stays full size while
+ * you scroll.
+ *
+ * Icons are Lucide (same set as the web app), rendered to template PNGs by
+ * `scripts/build-tab-icons.mjs` so the system can tint them; the selected tab
+ * uses a bolder stroke.
+ */
+const ICONS = {
+  home: { default: require("../../../../assets/tabs/home.png"), selected: require("../../../../assets/tabs/home-selected.png") },
+  ava: { default: require("../../../../assets/tabs/ava.png"), selected: require("../../../../assets/tabs/ava-selected.png") },
+  book: { default: require("../../../../assets/tabs/book.png"), selected: require("../../../../assets/tabs/book-selected.png") },
+  trips: { default: require("../../../../assets/tabs/trips.png"), selected: require("../../../../assets/tabs/trips-selected.png") },
+  more: { default: require("../../../../assets/tabs/more.png"), selected: require("../../../../assets/tabs/more-selected.png") },
+};
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      backBehavior="history"
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.inkFaint,
-        tabBarLabelStyle: { fontFamily: fonts.bodySemi, fontSize: 11 },
-        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.line },
-      }}
-    >
-      <Tabs.Screen name="home" options={{ title: "Home", tabBarIcon: tabIcon("planet") }} />
-      <Tabs.Screen name="ava" options={{ title: "Ava", tabBarIcon: tabIcon("chatbubble-ellipses") }} />
-      <Tabs.Screen name="book" options={{ title: "Book", tabBarIcon: tabIcon("airplane") }} />
-      <Tabs.Screen name="trips" options={{ title: "Trips", tabBarIcon: tabIcon("map") }} />
-      {/* Profile opens from Home's avatar and the More menu; hidden from the bar to keep it at five tabs. */}
-      <Tabs.Screen name="profile" options={{ title: "Profile", href: null }} />
-      <Tabs.Screen name="more" options={{ title: "More", tabBarIcon: tabIcon("grid") }} />
-    </Tabs>
+    <NativeTabs tintColor={colors.accent} labelStyle={{ fontFamily: fonts.bodySemi, fontSize: 11 }} minimizeBehavior="never">
+      <NativeTabs.Trigger name="home">
+        <NativeTabs.Trigger.Icon src={ICONS.home} renderingMode="template" />
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ava">
+        <NativeTabs.Trigger.Icon src={ICONS.ava} renderingMode="template" />
+        <NativeTabs.Trigger.Label>Ava</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="book">
+        <NativeTabs.Trigger.Icon src={ICONS.book} renderingMode="template" />
+        <NativeTabs.Trigger.Label>Book</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="trips">
+        <NativeTabs.Trigger.Icon src={ICONS.trips} renderingMode="template" />
+        <NativeTabs.Trigger.Label>Trips</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="more">
+        <NativeTabs.Trigger.Icon src={ICONS.more} renderingMode="template" />
+        <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }

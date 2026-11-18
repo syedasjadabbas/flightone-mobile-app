@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
+import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/core/auth/auth.store";
 import type { TravellerLocation } from "@/core/lib/geo/types";
 import { AvaRequestError, streamAvaChat } from "../api/avaClient";
@@ -63,6 +64,12 @@ export function useAvaChat(location: TravellerLocation | null) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const planRef = useRef<TravelPlan | null>(null);
+  // The same plan as state, so the screen can show it as editable chips.
+  const [plan, setPlanState] = useState<TravelPlan | null>(null);
+  const setPlan = useCallback((p: TravelPlan | null) => {
+    planRef.current = p;
+    setPlanState(p);
+  }, []);
   const conversationRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -94,14 +101,14 @@ export function useAvaChat(location: TravellerLocation | null) {
         c.unsubscribe?.();
         if (!c.data) return false;
         setMessages(messagesFromConversation(c.data));
-        planRef.current = c.data.metadata?.travelPlan ?? null;
+        setPlan(c.data.metadata?.travelPlan ?? null);
         setConversation(c.data.id);
         return true;
       } finally {
         setRestoring(false);
       }
     },
-    [dispatch, setConversation],
+    [dispatch, setConversation, setPlan],
   );
 
   /** Save one turn; creates the conversation on the first turn. Best effort. */
@@ -146,6 +153,7 @@ export function useAvaChat(location: TravellerLocation | null) {
       setMessages((prev) => [...prev, userMsg, { id: assistantId, role: "assistant", content: "", pending: true }]);
       setBusy(true);
       setPhase("extract");
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -156,6 +164,7 @@ export function useAvaChat(location: TravellerLocation | null) {
         plan: undefined as TravelPlan | null | undefined,
         provider: null as string | null,
         error: null as string | null,
+        streamed: false,
       };
 
       try {
@@ -173,6 +182,7 @@ export function useAvaChat(location: TravellerLocation | null) {
                 break;
               case "token":
                 staged.reply += event.delta;
+                staged.streamed = true;
                 patch(assistantId, { content: staged.reply });
                 break;
               case "done":
@@ -191,16 +201,19 @@ export function useAvaChat(location: TravellerLocation | null) {
 
         if (staged.error) {
           patch(assistantId, { content: staged.error, pending: false, failed: true });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
           return;
         }
-        if (keepsPlan(staged.plan)) planRef.current = staged.plan;
+        if (keepsPlan(staged.plan)) setPlan(staged.plan);
         const reply = staged.reply || FALLBACK_REPLY;
         patch(assistantId, {
           content: reply,
           panel: staged.panel,
           followUps: staged.panel?.followUpSuggestions ?? [],
           pending: false,
+          reveal: !staged.streamed,
         });
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         void save(message, reply, staged.provider, staged.plan, staged.panel);
       } catch (err) {
         if (controller.signal.aborted) {
@@ -212,24 +225,40 @@ export function useAvaChat(location: TravellerLocation | null) {
           pending: false,
           failed: true,
         });
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
         setBusy(false);
         setPhase(null);
       }
     },
-    [busy, patch, save],
+    [busy, patch, save, setPlan],
   );
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
+  /** Ask the last question again (after a failed or stopped reply). */
+  const retry = useCallback(() => {
+    if (busy) return;
+    const list = messagesRef.current;
+    const lastUser = [...list].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    const idx = list.lastIndexOf(lastUser);
+    setMessages(list.slice(0, idx));
+    messagesRef.current = list.slice(0, idx);
+    void send(lastUser.content);
+  }, [busy, send]);
+
+  /** Mark a typed-out reply as shown, so it doesn't type out again (e.g. after scrolling away). */
+  const revealed = useCallback((id: string) => patch(id, { reveal: false }), [patch]);
+
   /** Start a fresh chat (the old one stays saved in the history list). */
   const reset = useCallback(() => {
     abortRef.current?.abort();
-    planRef.current = null;
+    setPlan(null);
     setConversation(null);
     setMessages([]);
-  }, [setConversation]);
+  }, [setConversation, setPlan]);
 
-  return { messages, busy, phase, send, stop, reset, open, conversationId, restoring };
+  return { messages, busy, phase, send, stop, retry, revealed, reset, open, conversationId, restoring, plan };
 }

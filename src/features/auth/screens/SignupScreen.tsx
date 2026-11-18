@@ -37,15 +37,16 @@ function DetailsStep({ onNeedsVerification }: { onNeedsVerification: (email: str
     <AuthShell
       title="Create your account"
       subtitle="Plan, book and manage trips by talking to Ava."
-      footer={<TextLink label="Already have an account? Sign in" onPress={() => router.replace("/login")} />}
+      footer={<TextLink lead="Already have an account?" label="Sign in" onPress={() => router.replace("/login")} />}
     >
       {done ? <Notice tone="success" message="Account created. You can sign in now." /> : null}
       {error ? <Notice message={formatApiError(error)} /> : null}
-      <FormField control={control} name="name" label="Full name" autoComplete="name" textContentType="name" />
+      <FormField control={control} name="name" label="Full name" icon="person-outline" autoComplete="name" textContentType="name" />
       <FormField
         control={control}
         name="email"
         label="Email"
+        icon="mail-outline"
         autoCapitalize="none"
         autoComplete="email"
         keyboardType="email-address"
@@ -55,6 +56,7 @@ function DetailsStep({ onNeedsVerification }: { onNeedsVerification: (email: str
         control={control}
         name="password"
         label="Password"
+        icon="lock-closed-outline"
         secureTextEntry
         autoComplete="new-password"
         textContentType="newPassword"
@@ -64,6 +66,7 @@ function DetailsStep({ onNeedsVerification }: { onNeedsVerification: (email: str
         control={control}
         name="confirmPassword"
         label="Confirm password"
+        icon="lock-closed-outline"
         secureTextEntry
         autoComplete="new-password"
         textContentType="newPassword"

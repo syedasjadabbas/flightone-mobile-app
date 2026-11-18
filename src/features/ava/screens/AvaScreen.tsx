@@ -6,7 +6,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { colors, fonts, radius, shadow, space, type } from "@/core/theme/tokens";
 import { CorporateModeBanner } from "@/features/corporate/components/CorporateModeBanner";
-import { Composer } from "../components/Composer";
+import { Composer, type Prefill } from "../components/Composer";
+import { TripBar } from "../components/TripBar";
 import { MessageBubble } from "../components/MessageBubble";
 import { useAvaChat } from "../hooks/useAvaChat";
 import { useTravellerLocation } from "../hooks/useTravellerLocation";
@@ -15,7 +16,11 @@ import type { ChatMessage } from "../types";
 
 export function AvaScreen() {
   const { location } = useTravellerLocation();
-  const { messages, busy, phase, send, stop, reset, open, restoring } = useAvaChat(location);
+  const { messages, busy, phase, send, stop, retry, revealed, reset, open, restoring, plan } = useAvaChat(location);
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
+  const prefillBox = (text: string) => setPrefill((p) => ({ text, key: (p?.key ?? 0) + 1 }));
+  const lastUserId = [...messages].reverse().find((m) => m.role === "user")?.id;
+  const lastId = messages[messages.length - 1]?.id;
   const name = useAuthStore((s) => s.user?.name?.split(" ")[0]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const origin = location?.iata ? location.place : undefined;
@@ -73,8 +78,9 @@ export function AvaScreen() {
     setShowJump((prev) => (prev === jump ? prev : jump));
   };
 
+  // "bottom" keeps the message box above the floating tab bar, which counts as safe area.
   return (
-    <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.root} edges={["top", "left", "right", "bottom"]}>
       <View style={styles.header}>
         <Text style={type.h2}>Ava</Text>
         <View style={styles.headerActions}>
@@ -137,7 +143,14 @@ export function AvaScreen() {
                 if (pinnedRef.current) listRef.current?.scrollToEnd({ animated: true });
               }}
               renderItem={({ item }) => (
-                <MessageBubble message={item} phase={item.pending ? phase : null} onFollowUp={send} />
+                <MessageBubble
+                  message={item}
+                  phase={item.pending ? phase : null}
+                  onFollowUp={send}
+                  onRevealed={revealed}
+                  onRetry={item.failed && item.id === lastId && !busy ? retry : undefined}
+                  onEdit={item.id === lastUserId && !busy ? () => prefillBox(item.content) : undefined}
+                />
               )}
             />
             {showJump ? (
@@ -153,7 +166,8 @@ export function AvaScreen() {
             ) : null}
           </View>
         )}
-        <Composer busy={busy} onSend={send} onStop={stop} />
+        {messages.length ? <TripBar plan={plan} disabled={busy} onSend={send} onPrefill={prefillBox} /> : null}
+        <Composer busy={busy} onSend={send} onStop={stop} prefill={prefill} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -40,9 +40,13 @@ function StepRow({ step }: { step: JourneyStep }) {
   );
 }
 
-/** One trip: headline, phase, timeline (same steps as the web's JourneyCard), live status refresh. */
-export function TripCard({ watch }: { watch: JourneyWatch }) {
-  const [expanded, setExpanded] = useState(false);
+/**
+ * One trip: headline, phase, timeline (same steps as the web's JourneyCard), live status refresh.
+ * `detailed` (the trip's own page): the summary card above already shows the headline, so this
+ * starts at the full timeline.
+ */
+export function TripCard({ watch, detailed = false }: { watch: JourneyWatch; detailed?: boolean }) {
+  const [expanded, setExpanded] = useState(detailed);
   const [poll, pollState] = usePollJourneyMutation();
   const [note, setNote] = useState<{ tone: "info" | "error"; text: string } | null>(null);
 
@@ -72,12 +76,21 @@ export function TripCard({ watch }: { watch: JourneyWatch }) {
 
   return (
     <Card>
-      <View style={styles.head}>
-        <Tag label={tag.label} tone={TAG_TONE[tag.variant]} />
-        {s?.amountMinor != null && s.currency ? <Text style={styles.amount}>{formatMinor(s.amountMinor, s.currency)}</Text> : null}
-      </View>
-      <Text style={type.h2}>{head.route}</Text>
-      {head.sub ? <Text style={type.bodySoft}>{head.sub}</Text> : null}
+      {detailed ? (
+        <View style={styles.head}>
+          <Text style={type.h3}>Timeline</Text>
+          {s?.amountMinor != null && s.currency ? <Text style={styles.amount}>{formatMinor(s.amountMinor, s.currency)}</Text> : null}
+        </View>
+      ) : (
+        <>
+          <View style={styles.head}>
+            <Tag label={tag.label} tone={TAG_TONE[tag.variant]} />
+            {s?.amountMinor != null && s.currency ? <Text style={styles.amount}>{formatMinor(s.amountMinor, s.currency)}</Text> : null}
+          </View>
+          <Text style={type.h2}>{head.route}</Text>
+          {head.sub ? <Text style={type.bodySoft}>{head.sub}</Text> : null}
+        </>
+      )}
 
       {live && (live.status || live.gate || live.minutesDelayed) ? (
         <Text style={type.body}>
@@ -92,7 +105,7 @@ export function TripCard({ watch }: { watch: JourneyWatch }) {
           {shown.map((st) => (
             <StepRow key={st.key} step={st} />
           ))}
-          {steps.length > shown.length || expanded ? (
+          {!detailed && (steps.length > shown.length || expanded) ? (
             <Pressable accessibilityRole="button" onPress={() => setExpanded((v) => !v)} hitSlop={8}>
               <Text style={styles.link}>{expanded ? "Show less" : `Show full timeline (${steps.length})`}</Text>
             </Pressable>

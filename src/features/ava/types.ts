@@ -135,4 +135,6 @@ export interface ChatMessage extends ChatTurn {
   followUps?: string[];
   pending?: boolean;
   failed?: boolean;
+  /** A fresh reply that arrived in one piece: the bubble types it out, then shows the results. */
+  reveal?: boolean;
 }

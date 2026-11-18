@@ -1,10 +1,34 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { colors, fonts, radius, space } from "@/core/theme/tokens";
 
-/** Message box with Send, or Stop while Ava is answering. */
-export function Composer({ busy, onSend, onStop }: { busy: boolean; onSend: (text: string) => void; onStop: () => void }) {
+export type Prefill = { text: string; key: number };
+
+/**
+ * Message box with Send, or Stop while Ava is answering.
+ * `prefill` (new `key` each time) puts text in the box and focuses it, e.g. "Edit" on your last question.
+ */
+export function Composer({
+  busy,
+  onSend,
+  onStop,
+  prefill,
+}: {
+  busy: boolean;
+  onSend: (text: string) => void;
+  onStop: () => void;
+  prefill?: Prefill | null;
+}) {
   const [text, setText] = useState("");
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const [seenKey, setSeenKey] = useState<number | undefined>(undefined);
+  if (prefill && prefill.key !== seenKey) {
+    setSeenKey(prefill.key);
+    setText(prefill.text);
+  }
+  useEffect(() => {
+    if (prefill) inputRef.current?.focus();
+  }, [prefill]);
   const canSend = text.trim().length > 0 && !busy;
 
   const submit = () => {
@@ -16,6 +40,7 @@ export function Composer({ busy, onSend, onStop }: { busy: boolean; onSend: (tex
   return (
     <View style={styles.bar}>
       <TextInput
+        ref={inputRef}
         value={text}
         onChangeText={setText}
         placeholder="Where do you want to go?"

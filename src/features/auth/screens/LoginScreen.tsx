@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AppText, Button, Notice } from "@/core/components";
+import { space } from "@/core/theme/tokens";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { AuthShell } from "../components/AuthShell";
@@ -43,14 +45,9 @@ function CredentialsStep({
 
   return (
     <AuthShell
-      title="Sign in"
-      subtitle="Welcome back. Ava is ready when you are."
-      footer={
-        <>
-          <TextLink label="Forgot password?" onPress={() => router.push("/forgot-password")} />
-          <TextLink label="New to FlightOne? Create an account" onPress={() => router.push("/signup")} />
-        </>
-      }
+      title="Welcome back"
+      subtitle="Sign in and Ava will pick up where you left off."
+      footer={<TextLink lead="New to FlightOne?" label="Create an account" onPress={() => router.push("/signup")} />}
     >
       {signOutReason && !error ? <Notice tone="info" message={signOutReason} /> : null}
       {error ? <Notice message={formatApiError(error)} /> : null}
@@ -58,6 +55,8 @@ function CredentialsStep({
         control={control}
         name="email"
         label="Email"
+        icon="mail-outline"
+        placeholder="you@example.com"
         autoCapitalize="none"
         autoComplete="email"
         keyboardType="email-address"
@@ -68,12 +67,17 @@ function CredentialsStep({
         control={control}
         name="password"
         label="Password"
+        icon="lock-closed-outline"
+        placeholder="Your password"
         secureTextEntry
         autoComplete="current-password"
         textContentType="password"
         returnKeyType="go"
         onSubmitEditing={() => onSubmit()}
       />
+      <View style={styles.forgot}>
+        <TextLink label="Forgot password?" onPress={() => router.push("/forgot-password")} />
+      </View>
       <Button label="Sign in" onPress={onSubmit} loading={isLoading} />
     </AuthShell>
   );
@@ -129,6 +133,7 @@ function TwoFactorStep({ challenge, onBack }: { challenge: Login2faChallenge; on
         control={control}
         name="code"
         label={useBackup ? "Backup code" : "6-digit code"}
+        icon="shield-checkmark-outline"
         autoCapitalize="none"
         keyboardType={useBackup ? "default" : "number-pad"}
         textContentType="oneTimeCode"
@@ -140,3 +145,7 @@ function TwoFactorStep({ challenge, onBack }: { challenge: Login2faChallenge; on
     </AuthShell>
   );
 }
+
+const styles = StyleSheet.create({
+  forgot: { alignItems: "flex-end", marginTop: -space.sm },
+});

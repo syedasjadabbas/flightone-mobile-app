@@ -43,12 +43,13 @@ export function ResetPasswordScreen() {
     >
       {error ? <Notice message={formatApiError(error)} /> : null}
       {params.token ? null : (
-        <FormField control={control} name="token" label="Reset code" autoCapitalize="none" autoCorrect={false} />
+        <FormField control={control} name="token" label="Reset code" icon="key-outline" autoCapitalize="none" autoCorrect={false} />
       )}
       <FormField
         control={control}
         name="password"
         label="New password"
+        icon="lock-closed-outline"
         secureTextEntry
         autoComplete="new-password"
         textContentType="newPassword"
@@ -58,6 +59,7 @@ export function ResetPasswordScreen() {
         control={control}
         name="confirmPassword"
         label="Confirm new password"
+        icon="lock-closed-outline"
         secureTextEntry
         autoComplete="new-password"
         textContentType="newPassword"

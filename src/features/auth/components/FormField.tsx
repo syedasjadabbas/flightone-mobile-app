@@ -1,4 +1,5 @@
 import { Controller, type Control, type FieldValues, type Path } from "react-hook-form";
+import type { ComponentProps } from "react";
 import type { TextInputProps } from "react-native";
 import { TextField } from "@/core/components";
 
@@ -8,8 +9,9 @@ export function FormField<T extends FieldValues>({
   name,
   label,
   hint,
+  icon,
   ...inputProps
-}: { control: Control<T>; name: Path<T>; label: string; hint?: string } & Omit<
+}: { control: Control<T>; name: Path<T>; label: string; hint?: string; icon?: ComponentProps<typeof TextField>["icon"] } & Omit<
   TextInputProps,
   "value" | "onChangeText"
 >) {
@@ -25,6 +27,7 @@ export function FormField<T extends FieldValues>({
           onBlur={onBlur}
           error={error?.message}
           hint={hint}
+          icon={icon}
           {...inputProps}
         />
       )}

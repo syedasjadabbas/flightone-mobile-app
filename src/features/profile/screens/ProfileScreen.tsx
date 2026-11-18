@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Stack } from "expo-router";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { AppText, Button, Card, Notice, Pill, Screen, Tag } from "@/core/components";
+import { Button, Card, Notice, Pill, Screen, Tag } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
@@ -34,8 +35,8 @@ export function ProfileScreen() {
   const missing = profile?.completeness?.missing ?? [];
 
   return (
-    <Screen>
-      <AppText variant="h1">Profile</AppText>
+    <Screen edges={["left", "right", "bottom"]}>
+      <Stack.Screen options={{ title: "Profile" }} />
       <Card>
         <View style={styles.hero}>
           <AvatarPicker name={name} metadata={profile?.metadata} onError={setAvatarError} />
