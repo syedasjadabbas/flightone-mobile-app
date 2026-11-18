@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { AppText, Button, Card, Notice, Pill, Screen, TextField } from "@/core/components";
+import { AppText, Button, Card, Notice, Pill, Screen, TextField, DateField } from "@/core/components";
 import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
 import { ChoiceRow } from "@/features/checkout/components/ChoiceRow";
 import { AIRPORTS, CABINS, carsQuery, flightQuery, isIsoDate, isoDateFromToday, staysQuery } from "../lib/queries";
@@ -85,9 +85,9 @@ function FlightsForm() {
         }}
       />
       <AirportPicker label="To" value={destination} onChange={setDestination} exclude={origin} />
-      <TextField label="Departure" hint="YYYY-MM-DD" value={departureDate} onChangeText={setDepartureDate} maxLength={10} />
+      <DateField label="Departure" value={departureDate} onChange={setDepartureDate} minimumDate={new Date()} />
       {tripType === "roundtrip" ? (
-        <TextField label="Return" hint="YYYY-MM-DD" value={returnDate} onChangeText={setReturnDate} maxLength={10} />
+        <DateField label="Return" value={returnDate} onChange={setReturnDate} minimumDate={new Date()} />
       ) : null}
       <Stepper label="Passengers" value={passengers} min={1} max={9} onChange={setPassengers} />
       <ChoiceRow label="Cabin" options={CABINS.map((c) => ({ value: c, label: c[0].toUpperCase() + c.slice(1) }))} value={cabin} onChange={setCabin} />
@@ -116,8 +116,8 @@ function StaysForm() {
   return (
     <Card>
       <TextField label="Destination" value={destination} onChangeText={setDestination} />
-      <TextField label="Check-in" hint="YYYY-MM-DD" value={checkIn} onChangeText={setCheckIn} maxLength={10} />
-      <TextField label="Check-out" hint="YYYY-MM-DD" value={checkOut} onChangeText={setCheckOut} maxLength={10} />
+      <DateField label="Check-in" value={checkIn} onChange={setCheckIn} minimumDate={new Date()} />
+      <DateField label="Check-out" value={checkOut} onChange={setCheckOut} minimumDate={new Date()} />
       <Stepper label="Guests" value={guests} min={1} max={10} onChange={setGuests} />
       <Stepper label="Rooms" value={rooms} min={1} max={5} onChange={setRooms} />
       {error ? <Notice message={error} /> : null}
@@ -155,8 +155,8 @@ function CarsForm() {
         onChange={(v) => setSameReturn(v === "same")}
       />
       {!sameReturn ? <TextField label="Drop-off location" value={dropoffCity} onChangeText={setDropoffCity} /> : null}
-      <TextField label="Pick-up date" hint="YYYY-MM-DD" value={pickupDate} onChangeText={setPickupDate} maxLength={10} />
-      <TextField label="Drop-off date" hint="YYYY-MM-DD" value={dropoffDate} onChangeText={setDropoffDate} maxLength={10} />
+      <DateField label="Pick-up date" value={pickupDate} onChange={setPickupDate} minimumDate={new Date()} />
+      <DateField label="Drop-off date" value={dropoffDate} onChange={setDropoffDate} minimumDate={new Date()} />
       {error ? <Notice message={error} /> : null}
       <Button label="Search cars with Ava" onPress={submit} />
       <Text style={type.bodySoft}>Ava checks live rental partners for your city and dates — she never guesses a price.</Text>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Text } from "react-native";
-import { Button, Card, ListRow, Notice, TextField } from "@/core/components";
+import { Button, Card, ListRow, Notice, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { confirmAction } from "@/core/lib/confirm";
 import { type } from "@/core/theme/tokens";
@@ -68,7 +68,7 @@ export function CompanionsSection() {
       )}
       <TextField label="Full name (as on passport)" value={fullName} onChangeText={setFullName} />
       <TextField label="Relationship" placeholder="Spouse, child…" value={relationship} onChangeText={setRelationship} />
-      <TextField label="Date of birth (optional)" hint="YYYY-MM-DD" value={dob} onChangeText={setDob} maxLength={10} />
+      <DateField label="Date of birth (optional)" value={dob} onChange={setDob} optional maximumDate={new Date()} />
       {msg ? <Notice message={msg} /> : null}
       <Button label="Add companion" variant="ghost" onPress={submit} loading={addState.isLoading} />
     </Card>

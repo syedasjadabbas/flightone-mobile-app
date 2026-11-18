@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "@/core/auth/auth.store";
@@ -8,24 +9,34 @@ import { CorporateModeBanner } from "@/features/corporate/components/CorporateMo
 import { Composer } from "../components/Composer";
 import { MessageBubble } from "../components/MessageBubble";
 import { useAvaChat } from "../hooks/useAvaChat";
+import { useTravellerLocation } from "../hooks/useTravellerLocation";
 import { starterRoutes } from "../lib/starterRoutes";
 import type { ChatMessage } from "../types";
 
 export function AvaScreen() {
-  const { messages, busy, phase, send, stop, reset } = useAvaChat();
+  const { location } = useTravellerLocation();
+  const { messages, busy, phase, send, stop, reset, open, restoring } = useAvaChat(location);
   const name = useAuthStore((s) => s.user?.name?.split(" ")[0]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
-  const starters = useMemo(() => starterRoutes(), []);
+  const origin = location?.iata ? location.place : undefined;
+  const starters = useMemo(() => starterRoutes(new Date(), origin), [origin]);
   const last = messages[messages.length - 1];
 
-  // A search handed over from the Book tab (`/ava?q=…`): send it once, then clear the param.
-  const { q } = useLocalSearchParams<{ q?: string }>();
+  // A search handed over from another screen (`/ava?q=…`), or a saved chat to reopen
+  // (`/ava?chat=<id>`): act once, then clear the param.
+  const { q, chat } = useLocalSearchParams<{ q?: string; chat?: string }>();
   useEffect(() => {
     if (!q || busy) return;
     router.setParams({ q: undefined });
     send(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
+  useEffect(() => {
+    if (!chat) return;
+    router.setParams({ chat: undefined });
+    void open(chat);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat]);
 
   // While Ava is thinking, keep the bottom in view; when her answer lands,
   // scroll to the top of it so the reply is read before the result cards.
@@ -46,11 +57,16 @@ export function AvaScreen() {
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Text style={type.h2}>Ava</Text>
-        {messages.length ? (
-          <Pressable accessibilityRole="button" onPress={reset} hitSlop={10}>
-            <Text style={styles.newChat}>New chat</Text>
+        <View style={styles.headerActions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Saved chats" onPress={() => router.push("/chats")} hitSlop={10}>
+            <Ionicons name="time-outline" size={22} color={colors.ink} />
           </Pressable>
-        ) : null}
+          {messages.length ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="New chat" onPress={reset} hitSlop={10}>
+              <Ionicons name="create-outline" size={22} color={colors.accent} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
       <CorporateModeBanner />
 
@@ -59,9 +75,14 @@ export function AvaScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        {messages.length === 0 ? (
+        {restoring && messages.length === 0 ? (
+          <View style={[styles.flex, styles.center]}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : messages.length === 0 ? (
           <View style={[styles.flex, styles.empty]}>
             <Text style={type.h1}>{name ? `Hi ${name}, where to?` : "Where to next?"}</Text>
+            {origin ? <Text style={styles.near}>Flying from {origin}{location?.iata ? ` (${location.iata})` : ""}</Text> : null}
             <Text style={type.bodySoft}>
               Tell Ava your trip in your own words: cities, dates, budget, airline or cabin. She'll search live fares and
               stays and pick the best options.
@@ -113,7 +134,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
   },
-  newChat: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.accent },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: space.lg },
+  center: { alignItems: "center", justifyContent: "center" },
+  near: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.accent },
   empty: { padding: space.lg, gap: space.md },
   starters: { gap: space.md, marginTop: space.sm },
   starter: {

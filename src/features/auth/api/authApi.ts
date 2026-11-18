@@ -77,6 +77,35 @@ export const authApi = baseApi.injectEndpoints({
       onQueryStarted: (_arg, { queryFulfilled }) => storeSessionOnSuccess(queryFulfilled),
     }),
 
+    /** Start 2-step setup: secret + otpauth link + backup codes. `tempToken` when login requires setup. */
+    twoFactorSetup: builder.mutation<
+      { secret: string; otpauthUrl?: string; otpauthUri?: string; backupCodes: string[]; message: string },
+      { tempToken?: string } | void
+    >({
+      query: (body) => ({ url: "/auth/2fa/setup", method: "POST", body: body ?? {} }),
+    }),
+    twoFactorConfirm: builder.mutation<
+      { ok?: boolean; message?: string } & Partial<AuthSession>,
+      { code: string; tempToken?: string }
+    >({
+      query: (body) => ({ url: "/auth/2fa/confirm", method: "POST", body }),
+      invalidatesTags: ["Me", "AuthSessions"],
+      async onQueryStarted(_arg, { queryFulfilled }) {
+        const result = await queryFulfilled.catch(() => null);
+        const data = result?.data;
+        if (data?.accessToken && data.user) await useAuthStore.getState().setSession(data as AuthSession);
+        else if (data?.ok) useAuthStore.getState().updateUser({ twoFactorEnabled: true });
+      },
+    }),
+    twoFactorDisable: builder.mutation<{ ok: boolean; message: string }, { password?: string; code?: string }>({
+      query: (body) => ({ url: "/auth/2fa/disable", method: "POST", body }),
+      invalidatesTags: ["Me", "AuthSessions"],
+      async onQueryStarted(_arg, { queryFulfilled }) {
+        const result = await queryFulfilled.catch(() => null);
+        if (result?.data?.ok) useAuthStore.getState().updateUser({ twoFactorEnabled: false });
+      },
+    }),
+
     register: builder.mutation<RegisterResponse, RegisterRequest>({
       query: (body) => ({ url: PATHS.auth.register, method: "POST", body }),
     }),
@@ -125,6 +154,9 @@ export const authApi = baseApi.injectEndpoints({
 export const {
   useLoginMutation,
   useTwoFactorVerifyMutation,
+  useTwoFactorSetupMutation,
+  useTwoFactorConfirmMutation,
+  useTwoFactorDisableMutation,
   useRegisterMutation,
   useVerifyEmailMutation,
   useResendVerificationMutation,

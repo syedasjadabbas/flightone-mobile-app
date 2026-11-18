@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { Button, Card, ListRow, Notice, Screen, Tag, TextField } from "@/core/components";
+import { Button, Card, ListRow, Notice, Screen, Tag, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { colors, space, type } from "@/core/theme/tokens";
 import {
@@ -140,13 +140,13 @@ function AddSession({ eventId, onError }: { eventId: string; onError: (e: unknow
   return (
     <View style={styles.form}>
       <TextField label="Session title" value={title} onChangeText={setTitle} maxLength={200} />
-      <TextField label="Date" hint="YYYY-MM-DD" value={date} onChangeText={setDate} maxLength={10} />
+      <DateField label="Date" value={date} onChange={setDate} minimumDate={new Date()} />
       <View style={styles.row}>
         <View style={styles.flex}>
-          <TextField label="Start" hint="HH:MM" value={start} onChangeText={setStart} maxLength={5} />
+          <DateField label="Start" value={start} onChange={setStart} mode="time" />
         </View>
         <View style={styles.flex}>
-          <TextField label="End" hint="HH:MM" value={end} onChangeText={setEnd} maxLength={5} />
+          <DateField label="End" value={end} onChange={setEnd} mode="time" />
         </View>
       </View>
       <TextField label="Location (optional)" value={location} onChangeText={setLocation} />

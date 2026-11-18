@@ -9,6 +9,7 @@ import { useProfileQuery } from "../api/profileApi";
 import { DocumentsSection, HistorySection, SecuritySection } from "../components/AccountSections";
 import { CompanionsSection, EmergencySection, LoyaltySection } from "../components/PeopleSections";
 import { PreferencesSection } from "../components/PreferencesSection";
+import { AvatarPicker } from "../components/AvatarPicker";
 
 const SECTIONS = [
   { key: "preferences", label: "Preferences" },
@@ -21,20 +22,12 @@ const SECTIONS = [
 ] as const;
 type Section = (typeof SECTIONS)[number]["key"];
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("");
-}
-
 export function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const { data: profile, isLoading, error, refetch } = useProfileQuery();
   const [logout, logoutState] = useLogoutMutation();
   const [section, setSection] = useState<Section>("preferences");
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const name = profile?.displayName || user?.name || "Traveller";
   const score = profile?.completeness?.score;
@@ -45,14 +38,13 @@ export function ProfileScreen() {
       <AppText variant="h1">Profile</AppText>
       <Card>
         <View style={styles.hero}>
-          <View style={styles.avatar} accessibilityElementsHidden>
-            <Text style={styles.avatarText}>{initials(name) || "FO"}</Text>
-          </View>
+          <AvatarPicker name={name} metadata={profile?.metadata} onError={setAvatarError} />
           <View style={styles.flex}>
             <Text style={type.h2}>{name}</Text>
             <Text style={type.bodySoft}>{user?.email}</Text>
           </View>
         </View>
+        {avatarError ? <Notice message={avatarError} /> : null}
         {score != null ? (
           <View style={styles.readiness}>
             <View style={styles.readyHead}>
@@ -105,8 +97,6 @@ export function ProfileScreen() {
 
 const styles = StyleSheet.create({
   hero: { flexDirection: "row", alignItems: "center", gap: space.md },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontFamily: fonts.display, fontSize: 20, color: colors.onBtn },
   flex: { flex: 1, gap: 2 },
   readiness: { gap: space.sm },
   readyHead: { flexDirection: "row", justifyContent: "space-between" },

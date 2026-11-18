@@ -4,6 +4,7 @@ import { clientHeaders } from "@/core/api/headers";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { refreshSessionOnce } from "@/core/auth/refreshSession";
 import { formatApiError } from "@/core/api/formatApiError";
+import type { TravellerLocation } from "@/core/lib/geo/types";
 import { createSseParser } from "../lib/sse";
 import type { AvaStreamEvent, ChatTurn, TravelPlan } from "../types";
 
@@ -17,6 +18,8 @@ export interface AvaChatRequest {
   message: string;
   history: ChatTurn[];
   previousTravelPlan?: TravelPlan | null;
+  /** Where the traveller is (city, nearest airport, currency) — server sanitises it. */
+  location?: TravellerLocation | null;
 }
 
 export class AvaRequestError extends Error {

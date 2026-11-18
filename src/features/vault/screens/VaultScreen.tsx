@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, EmptyState, ListRow, Notice, Pill, Screen, TextField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
@@ -15,6 +15,7 @@ import {
 import type { VaultDocType, VaultDocument } from "../api/types";
 import { UploadForm } from "../components/UploadForm";
 import { expiryDisplay, formatByteSize } from "../lib/vaultFormat";
+import { openVaultFile } from "../lib/openVaultFile";
 import { VAULT_TYPE_LABELS, VAULT_TYPE_ORDER } from "../lib/visaStatus";
 
 /** Same categories as the web's VaultCategoryTabs. */
@@ -60,6 +61,18 @@ export function VaultScreen() {
       .some((s) => String(s).toLowerCase().includes(q));
   });
   const groups = VAULT_TYPE_ORDER.map((t) => ({ type: t, items: filtered.filter((d) => d.type === t) })).filter((g) => g.items.length);
+
+  const [opening, setOpening] = useState<string | null>(null);
+  const onOpen = async (d: VaultDocument) => {
+    setOpening(d.id);
+    try {
+      await openVaultFile(d);
+    } catch (err) {
+      setFlash({ tone: "error", text: err instanceof Error && err.message ? err.message : "Couldn't open the file." });
+    } finally {
+      setOpening(null);
+    }
+  };
 
   const onShare = async (d: VaultDocument) => {
     try {
@@ -142,6 +155,16 @@ export function VaultScreen() {
                     .join(" · ")}
                 />
                 <View style={styles.actions}>
+                  {d.type === "TICKET" && d.bookingId ? (
+                    <Button
+                      label="View ticket"
+                      variant="ghost"
+                      style={styles.action}
+                      onPress={() => router.push({ pathname: "/checkout/[bookingId]", params: { bookingId: d.bookingId! } })}
+                    />
+                  ) : d.hasBinary && capability?.canDownload !== false ? (
+                    <Button label={opening === d.id ? "Opening…" : "Open"} variant="ghost" onPress={() => onOpen(d)} style={styles.action} />
+                  ) : null}
                   <Button label="Share" variant="ghost" onPress={() => onShare(d)} style={styles.action} />
                   {!d.isPlatformIssued ? <Button label="Remove" variant="ghost" onPress={() => onDelete(d)} style={styles.action} /> : null}
                 </View>
@@ -170,5 +193,5 @@ const styles = StyleSheet.create({
   pills: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   doc: { gap: space.xs },
   actions: { flexDirection: "row", gap: space.sm },
-  action: { flex: 1, minHeight: 40 },
+  action: { flex: 1, minHeight: 40, paddingHorizontal: 8 },
 });

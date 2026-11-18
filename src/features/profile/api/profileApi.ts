@@ -1,4 +1,5 @@
 import { baseApi } from "@/core/api/baseApi";
+import type { OcrApplyFieldKey, OcrExtractionResult } from "../lib/ocrReview";
 
 /** Profile types — same as the web's `client/lib/api/profile.api.ts` (fields the app uses). */
 export type ProfileCompleteness = { score: number; missing: string[]; readyForHandsFreeBooking: boolean };
@@ -26,6 +27,8 @@ export type ProfilePatch = {
   preferredAirlines?: string[] | null;
   preferredCabin?: "ECONOMY" | "PREMIUM_ECONOMY" | "BUSINESS" | "FIRST" | null;
   maxLayoverMinutes?: number | null;
+  /** Free-form profile extras (e.g. avatarUrl). Send the whole object — it replaces the stored one. */
+  metadata?: Record<string, unknown>;
 };
 export type Companion = {
   id: string;
@@ -131,6 +134,22 @@ export const profileApi = baseApi.injectEndpoints({
       query: (body) => ({ url: "/profile/documents", method: "POST", body }),
       invalidatesTags: ["ProfileDocuments", "Profile"],
     }),
+    /** Read details from the document's stored scan (provider may be unconfigured — see ocrReview). */
+    scanDocument: build.mutation<{ document: IdentityDocument; extraction: OcrExtractionResult; applied: false }, string>({
+      query: (id) => ({ url: `/profile/documents/${id}/ocr`, method: "POST", body: {} }),
+      invalidatesTags: ["ProfileDocuments"],
+    }),
+    applyScannedFields: build.mutation<IdentityDocument, { id: string; acceptedFields: OcrApplyFieldKey[] }>({
+      query: ({ id, acceptedFields }) => ({ url: `/profile/documents/${id}/ocr/apply`, method: "POST", body: { acceptedFields } }),
+      invalidatesTags: ["ProfileDocuments", "Profile"],
+    }),
+    updateIdentityDocument: build.mutation<
+      IdentityDocument,
+      { id: string; patch: Partial<{ documentNumber: string; countryCode: string; documentSubtype: string; issuedAt: string; expiresAt: string }> }
+    >({
+      query: ({ id, patch }) => ({ url: `/profile/documents/${id}`, method: "PATCH", body: patch }),
+      invalidatesTags: ["ProfileDocuments", "Profile"],
+    }),
     travelHistory: build.query<TravelHistory, void>({
       query: () => ({ url: "/profile/history", params: { limit: 20 } }),
       providesTags: ["Profile"],
@@ -163,6 +182,9 @@ export const {
   useDeleteLoyaltyMutation,
   useIdentityDocumentsQuery,
   useCreateIdentityDocumentMutation,
+  useScanDocumentMutation,
+  useApplyScannedFieldsMutation,
+  useUpdateIdentityDocumentMutation,
   useTravelHistoryQuery,
   useSessionsQuery,
   useRevokeSessionMutation,

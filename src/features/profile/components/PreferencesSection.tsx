@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Notice, TextField } from "@/core/components";
+import { Button, Card, Notice, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { ChoiceRow } from "@/features/checkout/components/ChoiceRow";
 import { useUpdateProfileMutation, type ProfilePatch, type TravellerProfile } from "../api/profileApi";
@@ -71,7 +71,7 @@ export function PreferencesSection({ profile }: { profile: TravellerProfile }) {
         autoCapitalize="characters"
         maxLength={2}
       />
-      <TextField label="Date of birth" hint="YYYY-MM-DD" value={form.dateOfBirth} onChangeText={set("dateOfBirth")} maxLength={10} />
+      <DateField label="Date of birth" value={form.dateOfBirth} onChange={set("dateOfBirth")} maximumDate={new Date()} />
       <ChoiceRow label="Preferred cabin" options={[...CABINS]} value={form.preferredCabin as Cabin} onChange={set("preferredCabin")} />
       <TextField label="Seat preference" placeholder="Aisle, window…" value={form.seatPref} onChangeText={set("seatPref")} />
       <TextField label="Meal preference" placeholder="Halal, vegetarian…" value={form.mealPref} onChangeText={set("mealPref")} />

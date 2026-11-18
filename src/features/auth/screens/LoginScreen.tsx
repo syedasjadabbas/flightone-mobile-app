@@ -6,6 +6,7 @@ import { AppText, Button, Notice } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { AuthShell } from "../components/AuthShell";
+import { TwoFactorSetup } from "../components/TwoFactorSetup";
 import { FormField } from "../components/FormField";
 import { TextLink } from "../components/TextLink";
 import { isTwoFactorChallenge, useLoginMutation, useTwoFactorVerifyMutation, type Login2faChallenge } from "../api/authApi";
@@ -88,11 +89,13 @@ function TwoFactorStep({ challenge, onBack }: { challenge: Login2faChallenge; on
 
   if (challenge.requires2faSetup) {
     return (
-      <AuthShell title="Two-step verification" footer={<TextLink label="Back to sign in" onPress={onBack} />}>
-        <Notice
-          tone="info"
-          message="Your account needs two-step verification set up first. Please finish setup on the FlightOne website, then sign in here."
-        />
+      <AuthShell
+        title="Set up two-step verification"
+        subtitle="Your account needs it before you can sign in."
+        footer={<TextLink label="Back to sign in" onPress={onBack} />}
+      >
+        {/* Confirming with the login's temp token returns a session; the (auth) layout then redirects. */}
+        <TwoFactorSetup tempToken={challenge.tempToken} onEnabled={() => {}} />
       </AuthShell>
     );
   }

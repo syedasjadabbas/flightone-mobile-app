@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
 import { Stack, router } from "expo-router";
-import { Button, Card, ListRow, Notice, Pill, Screen, TextField } from "@/core/components";
+import { Button, Card, ListRow, Notice, Pill, Screen, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { confirmAction } from "@/core/lib/confirm";
@@ -128,8 +128,8 @@ function EnquiryTab() {
         <TextField label="Organisation (optional)" value={f.organization} onChangeText={set("organization")} />
         <TextField label="Destination city" value={f.destination} onChangeText={set("destination")} maxLength={80} />
         <TextField label="Travelling from (optional)" value={f.origin} onChangeText={set("origin")} maxLength={80} />
-        <TextField label="Event starts" hint="YYYY-MM-DD" value={f.startsAt} onChangeText={set("startsAt")} maxLength={10} />
-        <TextField label="Event ends" hint="YYYY-MM-DD" value={f.endsAt} onChangeText={set("endsAt")} maxLength={10} />
+        <DateField label="Event starts" value={f.startsAt} onChange={set("startsAt")} minimumDate={new Date()} />
+        <DateField label="Event ends" value={f.endsAt} onChange={set("endsAt")} minimumDate={new Date()} />
         <TextField label="Attendees" value={f.attendees} onChangeText={set("attendees")} keyboardType="number-pad" />
         <TextField label="Budget in PKR (optional)" value={f.budget} onChangeText={set("budget")} keyboardType="number-pad" />
         <TextField label="Contact name" value={f.contactName} onChangeText={set("contactName")} />
@@ -203,8 +203,8 @@ function EventsTab() {
         <Text style={type.h3}>Quick create</Text>
         <TextField label="Event name" value={name} onChangeText={setName} maxLength={200} />
         <ChoiceRow label="Type" options={TYPES.map((t) => ({ value: t, label: MICE_TYPE_LABELS[t] }))} value={kind} onChange={setKind} />
-        <TextField label="Starts" hint="YYYY-MM-DD" value={starts} onChangeText={setStarts} maxLength={10} />
-        <TextField label="Ends" hint="YYYY-MM-DD" value={ends} onChangeText={setEnds} maxLength={10} />
+        <DateField label="Starts" value={starts} onChange={setStarts} minimumDate={new Date()} />
+        <DateField label="Ends" value={ends} onChange={setEnds} minimumDate={new Date()} />
         {msg ? <Notice message={msg} /> : null}
         <Button
           label="Create workspace"

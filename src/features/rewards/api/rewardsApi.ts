@@ -52,6 +52,14 @@ export const rewardsApi = baseApi.injectEndpoints({
       query: () => "/rewards/referrals",
       providesTags: ["Rewards"],
     }),
+    /** Use points as credit on a quoted booking; the server recomputes what's chargeable. */
+    applyCheckoutCredit: build.mutation<
+      { chargeableAmountMinor: number; creditMinor: number; points: number },
+      { bookingId: string; points: number; idempotencyKey?: string }
+    >({
+      query: (body) => ({ url: "/rewards/checkout-credit", method: "POST", body }),
+      invalidatesTags: (_r, _e, arg) => ["Rewards", { type: "Fare" as const, id: arg.bookingId }],
+    }),
     attachReferral: build.mutation<unknown, { code: string }>({
       query: (body) => ({ url: "/rewards/referrals/attach", method: "POST", body }),
       invalidatesTags: ["Rewards"],
@@ -59,4 +67,4 @@ export const rewardsApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useRewardsSummaryQuery, useRewardsLedgerQuery, useReferralsQuery, useAttachReferralMutation } = rewardsApi;
+export const { useRewardsSummaryQuery, useRewardsLedgerQuery, useReferralsQuery, useAttachReferralMutation, useApplyCheckoutCreditMutation } = rewardsApi;

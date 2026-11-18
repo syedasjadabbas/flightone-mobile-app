@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
 import { Stack, router } from "expo-router";
-import { Button, Card, ListRow, Notice, Pill, Screen, TextField } from "@/core/components";
+import { Button, Card, ListRow, Notice, Pill, Screen, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { confirmAction } from "@/core/lib/confirm";
@@ -162,8 +162,8 @@ function RequestTab() {
             <TextField label="To" value={f.destination} onChangeText={(t) => set("destination")(t.toUpperCase())} autoCapitalize="characters" maxLength={10} />
           </View>
         </View>
-        <TextField label="Departure (optional)" hint="YYYY-MM-DD" value={f.departureDate} onChangeText={set("departureDate")} maxLength={10} />
-        <TextField label="Return (optional)" hint="YYYY-MM-DD" value={f.returnDate} onChangeText={set("returnDate")} maxLength={10} />
+        <DateField label="Departure (optional)" value={f.departureDate} onChange={set("departureDate")} optional minimumDate={new Date()} />
+        <DateField label="Return (optional)" value={f.returnDate} onChange={set("returnDate")} optional minimumDate={new Date()} />
         <ChoiceRow
           label="Date flexibility"
           options={(Object.keys(FLEXIBILITY_LABELS) as GroupDateFlexibility[]).map((k) => ({ value: k, label: FLEXIBILITY_LABELS[k] }))}

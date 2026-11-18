@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Text } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { Button, Card, Notice, TextField } from "@/core/components";
+import { Button, Card, Notice, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { type } from "@/core/theme/tokens";
 import { ChoiceRow } from "@/features/checkout/components/ChoiceRow";
 import { useCreateIdentityDocumentMutation } from "@/features/profile/api/profileApi";
+import { DocumentScanPanel } from "@/features/profile/components/DocumentScanPanel";
 import { useUploadVaultDocumentMutation } from "../api/vaultApi";
 import type { VaultDocType, VaultStorageCapability } from "../api/types";
 import { VAULT_TYPE_LABELS } from "../lib/visaStatus";
@@ -30,8 +31,25 @@ export function UploadForm({ capability, onDone }: { capability: VaultStorageCap
   const [file, setFile] = useState<Picked | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [scan, setScan] = useState<{ id: string; title: string } | null>(null);
   const maxBytes = capability?.maxBytes ?? 10 * 1024 * 1024;
   const allowed = capability?.allowedMimeTypes?.length ? capability.allowedMimeTypes : ALLOWED;
+
+  if (scan) {
+    const finish = () => {
+      setScan(null);
+      setTitle("");
+      setExpiresAt("");
+      onDone(`${scan.title} saved to your vault.`);
+    };
+    return (
+      <Card>
+        <Text style={type.h3}>{scan.title} saved</Text>
+        <DocumentScanPanel documentId={scan.id} onDone={finish} />
+        <Button label="Skip for now" variant="ghost" onPress={finish} />
+      </Card>
+    );
+  }
 
   if (capability && !capability.canUpload) {
     return <Notice tone="info" message={capability.reasons[0] || "Document uploads aren't available right now."} />;
@@ -67,13 +85,19 @@ export function UploadForm({ capability, onDone }: { capability: VaultStorageCap
         ...(expiresAt.trim() ? { expiresAt: expiresAt.trim() } : {}),
       }).unwrap();
       if (IDENTITY.has(docType) && doc.hasBinary) {
-        await createIdentity({
+        const identity = await createIdentity({
           type: docType as "PASSPORT" | "NATIONAL_ID" | "VISA" | "RESIDENCE_PERMIT",
           vaultDocumentId: doc.id,
           ...(expiresAt.trim() ? { expiresAt: expiresAt.trim() } : {}),
         })
           .unwrap()
           .catch(() => null); // the file is safely in the vault even if this link fails
+        if (identity) {
+          // Same as web: go straight to reading the details from the scan.
+          setScan({ id: identity.id, title: doc.title });
+          setFile(null);
+          return;
+        }
       }
       setFile(null);
       setTitle("");
@@ -94,7 +118,7 @@ export function UploadForm({ capability, onDone }: { capability: VaultStorageCap
         onChange={setDocType}
       />
       <TextField label="Title" value={title} onChangeText={setTitle} maxLength={200} />
-      <TextField label="Expiry date (optional)" hint="YYYY-MM-DD" value={expiresAt} onChangeText={setExpiresAt} maxLength={10} />
+      <DateField label="Expiry date (optional)" value={expiresAt} onChange={setExpiresAt} optional minimumDate={new Date()} />
       <Button label={file ? `Change file (${file.name})` : "Choose file"} variant="ghost" onPress={pick} />
       <Text style={type.bodySoft}>PDF or photo, up to {Math.round(maxBytes / 1024 / 1024)} MB. Stored encrypted; only you can open it.</Text>
       {error ? <Notice message={error} /> : null}

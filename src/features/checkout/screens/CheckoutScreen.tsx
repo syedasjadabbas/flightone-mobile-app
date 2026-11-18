@@ -17,6 +17,7 @@ import {
 import { useApprovalGateQuery } from "@/features/corporate/api/corporateApi";
 import { useCorporateProfileStore } from "@/features/corporate/store/corporateProfile.store";
 import { CorporateGate } from "../components/CorporateGate";
+import { RewardsCredit } from "../components/RewardsCredit";
 import type { PayMethod } from "../api/types";
 import { formatMinor, isBookingTicketed, parsePriceChangedError, type PriceChangedDetails } from "../lib/checkoutDisplay";
 import { emptyHotelGuests, hotelStayOf, hotelTravellerSnapshot, validateHotelGuests, type HotelGuestsForm as HotelForm } from "../lib/hotelStay";
@@ -300,6 +301,7 @@ export function CheckoutScreen() {
           ) : (
             <Notice message="This hotel booking is missing its stay details. Please search again." />
           )}
+          <RewardsCredit booking={booking} onApplied={() => refetch()} />
           <PaymentSection
             booking={booking}
             method={method}

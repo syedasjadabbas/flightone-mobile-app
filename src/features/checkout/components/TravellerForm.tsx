@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { Card, Pill, TextField } from "@/core/components";
+import { Card, Pill, TextField, DateField } from "@/core/components";
 import { space, type } from "@/core/theme/tokens";
 import type { Companion } from "../api/types";
 import { TRAVELLER_TITLES, type TravellerFormData } from "../lib/travellerAutoFill";
@@ -82,9 +82,9 @@ export function TravellerForm({
         maxLength={2}
         editable={!disabled}
       />
-      <TextField label="Date of birth" hint="YYYY-MM-DD" value={value.dateOfBirth} onChangeText={set("dateOfBirth")} maxLength={10} editable={!disabled} />
+      <DateField label="Date of birth" value={value.dateOfBirth} onChange={set("dateOfBirth")} maximumDate={new Date()} />
       <TextField label="Passport number (optional)" value={value.passportNumber} onChangeText={set("passportNumber")} autoCapitalize="characters" editable={!disabled} />
-      <TextField label="Passport expiry (optional)" hint="YYYY-MM-DD" value={value.passportExpiry} onChangeText={set("passportExpiry")} maxLength={10} editable={!disabled} />
+      <DateField label="Passport expiry (optional)" value={value.passportExpiry} onChange={set("passportExpiry")} optional minimumDate={new Date()} />
     </Card>
   );
 }

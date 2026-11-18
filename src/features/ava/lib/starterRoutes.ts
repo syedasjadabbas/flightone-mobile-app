@@ -14,28 +14,36 @@ export interface StarterRoute {
   prompt: string;
 }
 
-export function starterRoutes(today = new Date()): StarterRoute[] {
+/**
+ * `origin` is the traveller's city when the phone shares its location
+ * (Lahore otherwise, the web's default). Destinations shift if you're already there.
+ */
+export function starterRoutes(today = new Date(), origin = "Lahore"): StarterRoute[] {
   const base = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   const at = (days: number) => new Date(base + days * DAY_MS);
   const oneWay = at(21);
   const [out, back] = [at(28), at(42)];
   const [m1, m2, m3] = [at(35), at(39), at(44)];
   const range = m1.getUTCMonth() === m3.getUTCMonth() ? `${day(m1)}–${short(m3)}` : `${short(m1)}–${short(m3)}`;
+  const near = (city: string, alt: string) => (origin.toLowerCase() === city.toLowerCase() ? alt : city);
+  const sun = near("Dubai", "Istanbul");
+  const far = near("London", "New York");
+  const [eu1, eu2] = origin.toLowerCase() === "london" || origin.toLowerCase() === "paris" ? ["Rome", "Barcelona"] : ["London", "Paris"];
   return [
     {
-      title: "Lahore → Dubai",
+      title: `${origin} → ${sun}`,
       subtitle: `Cheapest one-way · ${short(oneWay)}`,
-      prompt: `Cheapest Lahore to Dubai on ${long(oneWay)}`,
+      prompt: `Cheapest ${origin} to ${sun} on ${long(oneWay)}`,
     },
     {
-      title: "Lahore ⇄ London",
+      title: `${origin} ⇄ ${far}`,
       subtitle: `Round trip · ${short(out)} – ${short(back)}`,
-      prompt: `Round trip Lahore to London, out ${long(out)} back ${long(back)}`,
+      prompt: `Round trip ${origin} to ${far}, out ${long(out)} back ${long(back)}`,
     },
     {
-      title: "London & Paris",
+      title: `${eu1} & ${eu2}`,
       subtitle: `Multi-city Europe · ${range}`,
-      prompt: `Multi-city: Lahore to London on ${long(m1)}, London to Paris on ${long(m2)}, Paris back to Lahore on ${long(m3)}`,
+      prompt: `Multi-city: ${origin} to ${eu1} on ${long(m1)}, ${eu1} to ${eu2} on ${long(m2)}, ${eu2} back to ${origin} on ${long(m3)}`,
     },
   ];
 }
