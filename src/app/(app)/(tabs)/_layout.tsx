@@ -15,7 +15,6 @@ function tabIcon(name: string) {
 export default function TabsLayout() {
   return (
     <Tabs
-      // Home sits first in the bar, but the app opens on Ava (see src/app/index.tsx).
       backBehavior="history"
       screenOptions={{
         headerShown: false,

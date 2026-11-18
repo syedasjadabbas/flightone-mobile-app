@@ -5,6 +5,6 @@ import { colors } from "@/core/theme/tokens";
 /** Sign-in screens: bounce to the app once a session exists. */
 export default function AuthLayout() {
   const signedIn = useAuthStore((s) => s.status === "signedIn");
-  if (signedIn) return <Redirect href="/ava" />;
+  if (signedIn) return <Redirect href="/home" />;
   return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />;
 }

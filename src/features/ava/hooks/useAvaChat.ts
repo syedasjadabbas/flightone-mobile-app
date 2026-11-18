@@ -5,7 +5,6 @@ import type { TravellerLocation } from "@/core/lib/geo/types";
 import { AvaRequestError, streamAvaChat } from "../api/avaClient";
 import {
   conversationsApi,
-  isAvaChat,
   useRecordMessagesMutation,
   useStartConversationMutation,
   type ConversationDetail,
@@ -48,8 +47,9 @@ function messagesFromConversation(c: ConversationDetail): ChatMessage[] {
  * remember the travel plan so follow-ups ("make it business class") keep context.
  *
  * Signed-in chats are saved to /conversations (same as web): each turn is
- * recorded with the travel plan and results, and the latest chat is restored
- * when the app opens. Saving never blocks the chat — failures are ignored.
+ * recorded with the travel plan and results. Ava always opens on a new chat;
+ * past chats reopen from the history list. Saving never blocks the chat —
+ * failures are ignored.
  */
 export function useAvaChat(location: TravellerLocation | null) {
   const dispatch = useDispatch();
@@ -81,7 +81,7 @@ export function useAvaChat(location: TravellerLocation | null) {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...change } : m)));
   }, []);
 
-  /** Open a saved chat (from the history list, or the latest one at start). */
+  /** Open a saved chat from the history list. */
   const open = useCallback(
     async (id: string) => {
       abortRef.current?.abort();
@@ -103,22 +103,6 @@ export function useAvaChat(location: TravellerLocation | null) {
     },
     [dispatch, setConversation],
   );
-
-  // Restore the latest Ava chat once, when signed in.
-  const restoredRef = useRef(false);
-  useEffect(() => {
-    if (!signedIn || restoredRef.current) return;
-    restoredRef.current = true;
-    (async () => {
-      const r = (await dispatch(conversationsApi.endpoints.conversations.initiate(undefined) as never)) as unknown as {
-        data?: { items: Array<{ id: string; title: string | null }> };
-        unsubscribe?: () => void;
-      };
-      r.unsubscribe?.();
-      const latest = r.data?.items.find(isAvaChat);
-      if (latest && messagesRef.current.length === 0) await open(latest.id);
-    })().catch(() => {});
-  }, [signedIn, dispatch, open]);
 
   /** Save one turn; creates the conversation on the first turn. Best effort. */
   const save = useCallback(

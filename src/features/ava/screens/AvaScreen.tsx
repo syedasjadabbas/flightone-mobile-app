@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, type NativeScrollEvent, type NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -38,20 +38,40 @@ export function AvaScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat]);
 
-  // While Ava is thinking, keep the bottom in view; when her answer lands,
-  // scroll to the top of it so the reply is read before the result cards.
+  // Stick to the bottom like a chat app: a new message (or a reopened chat) jumps
+  // to the end, and while you're at the bottom the view follows Ava's answer as it
+  // grows. Scroll up and it stays put, with a ↓ button to jump back down.
+  const pinnedRef = useRef(true);
+  const lastYRef = useRef(0);
+  const [showJump, setShowJump] = useState(false);
+
+  const jumpToBottom = (animated = true) => {
+    pinnedRef.current = true;
+    setShowJump(false);
+    listRef.current?.scrollToEnd({ animated });
+  };
+
   useEffect(() => {
-    if (!last) return;
-    const list = listRef.current;
-    if (!list) return;
-    if (last.pending) {
-      list.scrollToEnd({ animated: true });
-    } else if (last.role === "assistant") {
-      const index = messages.length - 1;
-      requestAnimationFrame(() => list.scrollToIndex({ index, viewPosition: 0, animated: true }));
+    if (messages.length === 0) {
+      pinnedRef.current = true;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const raf = requestAnimationFrame(() => jumpToBottom());
+    return () => cancelAnimationFrame(raf);
   }, [messages.length, last?.pending]);
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const y = contentOffset.y;
+    const scrolledUp = y < lastYRef.current - 2;
+    lastYRef.current = y;
+    const fromBottom = contentSize.height - layoutMeasurement.height - y;
+    // Only the reader scrolling up un-pins; content growing below never does.
+    if (fromBottom < 60) pinnedRef.current = true;
+    else if (scrolledUp) pinnedRef.current = false;
+    const jump = !pinnedRef.current && fromBottom > 120;
+    setShowJump((prev) => (prev === jump ? prev : jump));
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
@@ -84,7 +104,7 @@ export function AvaScreen() {
             <Text style={type.h1}>{name ? `Hi ${name}, where to?` : "Where to next?"}</Text>
             {origin ? <Text style={styles.near}>Flying from {origin}{location?.iata ? ` (${location.iata})` : ""}</Text> : null}
             <Text style={type.bodySoft}>
-              Tell Ava your trip in your own words: cities, dates, budget, airline or cabin. She'll search live fares and
+              Tell Ava your trip in your own words: cities, dates, budget, airline or cabin. She&apos;ll search live fares and
               stays and pick the best options.
             </Text>
             <View style={styles.starters}>
@@ -103,20 +123,35 @@ export function AvaScreen() {
             </View>
           </View>
         ) : (
-          <FlatList
-            ref={listRef}
-            style={styles.flex}
-            data={messages}
-            keyExtractor={(m) => m.id}
-            contentContainerStyle={styles.list}
-            keyboardShouldPersistTaps="handled"
-            onScrollToIndexFailed={({ index }) =>
-              setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0, animated: true }), 120)
-            }
-            renderItem={({ item }) => (
-              <MessageBubble message={item} phase={item.pending ? phase : null} onFollowUp={send} />
-            )}
-          />
+          <View style={styles.flex}>
+            <FlatList
+              ref={listRef}
+              style={styles.flex}
+              data={messages}
+              keyExtractor={(m) => m.id}
+              contentContainerStyle={styles.list}
+              keyboardShouldPersistTaps="handled"
+              onScroll={onScroll}
+              scrollEventThrottle={32}
+              onContentSizeChange={() => {
+                if (pinnedRef.current) listRef.current?.scrollToEnd({ animated: true });
+              }}
+              renderItem={({ item }) => (
+                <MessageBubble message={item} phase={item.pending ? phase : null} onFollowUp={send} />
+              )}
+            />
+            {showJump ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Scroll to latest message"
+                onPress={() => jumpToBottom()}
+                hitSlop={8}
+                style={({ pressed }) => [styles.jump, pressed && styles.pressed]}
+              >
+                <Ionicons name="arrow-down" size={20} color={colors.ink} />
+              </Pressable>
+            ) : null}
+          </View>
         )}
         <Composer busy={busy} onSend={send} onStop={stop} />
       </KeyboardAvoidingView>
@@ -150,4 +185,18 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.9 },
   list: { padding: space.lg, gap: space.lg },
+  jump: {
+    position: "absolute",
+    bottom: space.md,
+    alignSelf: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    ...shadow,
+  },
 });

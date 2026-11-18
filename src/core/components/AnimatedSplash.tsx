@@ -26,8 +26,7 @@ const PATH_T = [0, 0.25, 0.5, 0.75, 1];
 const PATH_X = [-185, -95, 0, 105, 200];
 const PATH_Y = [52, -38, -78, -66, -24];
 const PATH_ANGLE = ["-58deg", "-30deg", "0deg", "22deg", "38deg"]; // nose follows the arc (icon points up-right at 0)
-const NAME = "FlightOne".split("");
-const TRAIL =Array.from({ length: 9 }, (_, i) => (i + 1) / 11);
+const TRAIL = Array.from({ length: 9 }, (_, i) => (i + 1) / 11);
 
 const lerp = (t: number, xs: number[]) => {
   for (let i = 1; i < PATH_T.length; i++) {
@@ -43,7 +42,6 @@ export function AnimatedSplash({ ready, onFinish }: { ready: boolean; onFinish: 
   const flight = useAnimValue(0);
   const sparkle = useAnimValue(0);
   const tagline = useAnimValue(0);
-  const write = useAnimValue(0);
   const exit = useAnimValue(0);
   const breathe = useAnimValue(0);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -86,15 +84,14 @@ export function AnimatedSplash({ ready, onFinish }: { ready: boolean; onFinish: 
           Animated.timing(sparkle, { toValue: 1, duration: 520, easing: Easing.out(Easing.quad), useNativeDriver: true }),
         ]),
         Animated.sequence([
-          Animated.delay(250),
-          Animated.timing(write, { toValue: NAME.length, duration: 720, easing: Easing.linear, useNativeDriver: true }),
+          Animated.delay(650),
           Animated.timing(tagline, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         ]),
       ]),
       Animated.delay(450),
       Animated.timing(exit, { toValue: 1, duration: 420, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
     ]).start(() => onFinish());
-  }, [ready, reduceMotion, breathe, exit, flight, sparkle, tagline, write, onFinish]);
+  }, [ready, reduceMotion, breathe, exit, flight, sparkle, tagline, onFinish]);
 
   const planeX = flight.interpolate({ inputRange: PATH_T, outputRange: PATH_X });
   const planeY = flight.interpolate({ inputRange: PATH_T, outputRange: PATH_Y });
@@ -166,26 +163,6 @@ export function AnimatedSplash({ ready, onFinish }: { ready: boolean; onFinish: 
           <Ionicons name="airplane" size={26} color={colors.ink} style={styles.planeIcon} />
         </Animated.View>
 
-        {/* The name, written letter by letter: "Flight" in ink, "One" in brand cyan */}
-        <View style={styles.name} accessibilityLabel="FlightOne">
-          {ready
-            ? NAME.map((ch, i) => (
-                <Animated.Text
-                  key={i}
-                  style={[
-                    styles.nameText,
-                    i >= 6 && styles.nameOne,
-                    {
-                      opacity: write.interpolate({ inputRange: [i, i + 1], outputRange: [0, 1], extrapolate: "clamp" }),
-                      transform: [{ translateY: write.interpolate({ inputRange: [i, i + 1], outputRange: [6, 0], extrapolate: "clamp" }) }],
-                    },
-                  ]}
-                >
-                  {ch}
-                </Animated.Text>
-              ))
-            : null}
-        </View>
 
         <Animated.View
           style={[
@@ -212,9 +189,6 @@ const styles = StyleSheet.create({
   plane: { position: "absolute" },
   // Ionicons "airplane" points to the upper-right; turn it to fly level-right at angle 0.
   planeIcon: { transform: [{ rotate: "45deg" }] },
-  name: { position: "absolute", top: "50%", marginTop: LOGO_HEIGHT / 2 + 18, flexDirection: "row" },
-  nameText: { fontFamily: fonts.display, fontSize: 30, letterSpacing: 0.5, color: colors.ink },
-  nameOne: { color: colors.accent },
-  tagline: { position: "absolute", top: "50%", marginTop: LOGO_HEIGHT / 2 + 64 },
+  tagline: { position: "absolute", top: "50%", marginTop: LOGO_HEIGHT / 2 + 20 },
   taglineText: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.inkSoft, letterSpacing: 0.3 },
 });
