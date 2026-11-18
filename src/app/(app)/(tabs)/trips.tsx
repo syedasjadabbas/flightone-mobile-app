@@ -1,1 +1,1 @@
-export { TripsPlaceholder as default } from "@/features/placeholders/screens";
+export { TripsScreen as default } from "@/features/trips/screens/TripsScreen";

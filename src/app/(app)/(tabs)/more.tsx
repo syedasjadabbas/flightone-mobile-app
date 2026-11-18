@@ -1,1 +1,1 @@
-export { MorePlaceholder as default } from "@/features/placeholders/screens";
+export { MoreScreen as default } from "@/features/more/screens/MoreScreen";
