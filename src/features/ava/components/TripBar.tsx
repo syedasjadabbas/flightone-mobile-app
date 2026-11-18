@@ -57,6 +57,7 @@ export function TripBar({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.scroller}
         contentContainerStyle={styles.bar}
         keyboardShouldPersistTaps="handled"
         accessibilityLabel="Your trip. Tap a part to change it."
@@ -215,7 +216,9 @@ function hotelChips(s: Extract<PlanSummary, { kind: "hotel" }>, onSend: (t: stri
 }
 
 const styles = StyleSheet.create({
-  bar: { gap: space.sm, paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: 2 },
+  // A horizontal ScrollView in a column grows to fill it unless told not to.
+  scroller: { flexGrow: 0, flexShrink: 0 },
+  bar: { alignItems: "center", gap: space.sm, paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: 2 },
   chip: {
     flexDirection: "row",
     alignItems: "center",

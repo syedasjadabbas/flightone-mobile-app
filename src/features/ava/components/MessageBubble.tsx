@@ -1,39 +1,12 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, fonts, radius, space } from "@/core/theme/tokens";
 import type { AvaPhase, ChatMessage } from "../types";
-import { ResultsPanel } from "./ResultsPanel";
-
-/**
- * The engine only reports "extract" until the supplier search returns (often
- * 20–30 s), so like the web's progress card we step through these on a timer.
- */
-const PROGRESS_STEPS = [
-  "Understanding your trip…",
-  "Searching live fares…",
-  "Comparing airlines and prices…",
-  "Checking baggage and fare rules…",
-  "Picking the best options…",
-];
-const STEP_MS = 4500;
-
-const PHASE_TEXT: Partial<Record<AvaPhase, string>> = {
-  reply: "Putting your options together…",
-  done: "Almost there…",
-};
-
-function ThinkingText({ phase }: { phase: AvaPhase | null }) {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setStep((s) => Math.min(s + 1, PROGRESS_STEPS.length - 1)), STEP_MS);
-    return () => clearInterval(timer);
-  }, []);
-  const text = (phase && PHASE_TEXT[phase]) || PROGRESS_STEPS[step];
-  return <Text style={styles.thinkingText}>{text}</Text>;
-}
+import { ProgressCard } from "./ProgressCard";
+import { ResultsSummaryCard } from "./ResultsSummaryCard";
 
 /**
  * Types a reply out word by word (about 1.5 s at most, however long it is),
@@ -130,10 +103,7 @@ export function MessageBubble({
         style={[styles.bubble, styles.assistant, message.failed && styles.failed]}
       >
         {message.pending && !message.content ? (
-          <View style={styles.thinking} accessibilityLiveRegion="polite">
-            <ActivityIndicator size="small" color={colors.accent} />
-            <ThinkingText phase={phase} />
-          </View>
+          <ProgressCard phase={phase} />
         ) : (
           <Text style={[styles.assistantText, message.failed && styles.failedText]}>{typing.text}</Text>
         )}
@@ -145,7 +115,7 @@ export function MessageBubble({
           <Text style={styles.retryText}>Try again</Text>
         </Pressable>
       ) : null}
-      {typing.done && message.panel ? <ResultsPanel panel={message.panel} /> : null}
+      {typing.done && message.panel ? <ResultsSummaryCard id={message.id} panel={message.panel} /> : null}
       {typing.done && message.followUps?.length ? (
         <View style={styles.chips}>
           {message.followUps.slice(0, 4).map((s) => (
@@ -192,8 +162,6 @@ const styles = StyleSheet.create({
   assistantText: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.ink },
   failed: { backgroundColor: colors.dangerSoft, borderColor: colors.dangerSoft },
   failedText: { color: colors.danger },
-  thinking: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  thinkingText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.inkSoft },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   chip: {
     borderRadius: radius.pill,
