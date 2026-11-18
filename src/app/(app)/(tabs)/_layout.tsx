@@ -1,4 +1,5 @@
 import { NativeTabs } from "expo-router/native-tabs";
+import { TAB_ICONS } from "@/core/theme/tabIcons.generated";
 import { colors, fonts } from "@/core/theme/tokens";
 
 /**
@@ -6,17 +7,11 @@ import { colors, fonts } from "@/core/theme/tokens";
  * frosted bar on older iOS, Material bar on Android. It stays full size while
  * you scroll.
  *
- * Icons are Lucide (same set as the web app), rendered to template PNGs by
- * `scripts/build-tab-icons.mjs` so the system can tint them; the selected tab
- * uses a bolder stroke.
+ * Icons are Lucide (same set as the web app): outline when idle, solid when
+ * selected. `scripts/build-tab-icons.mjs` renders them to PNGs and embeds them
+ * inline (tabIcons.generated.ts) so the bar shows instantly, with no image fetch.
  */
-const ICONS = {
-  home: { default: require("../../../../assets/tabs/home.png"), selected: require("../../../../assets/tabs/home-selected.png") },
-  ava: { default: require("../../../../assets/tabs/ava.png"), selected: require("../../../../assets/tabs/ava-selected.png") },
-  book: { default: require("../../../../assets/tabs/book.png"), selected: require("../../../../assets/tabs/book-selected.png") },
-  trips: { default: require("../../../../assets/tabs/trips.png"), selected: require("../../../../assets/tabs/trips-selected.png") },
-  more: { default: require("../../../../assets/tabs/more.png"), selected: require("../../../../assets/tabs/more-selected.png") },
-};
+const ICONS = TAB_ICONS;
 
 export default function TabsLayout() {
   return (
