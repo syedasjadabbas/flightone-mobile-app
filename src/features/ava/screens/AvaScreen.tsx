@@ -1,0 +1,118 @@
+import { useEffect, useMemo, useRef } from "react";
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuthStore } from "@/core/auth/auth.store";
+import { colors, fonts, radius, shadow, space, type } from "@/core/theme/tokens";
+import { Composer } from "../components/Composer";
+import { MessageBubble } from "../components/MessageBubble";
+import { useAvaChat } from "../hooks/useAvaChat";
+import { starterRoutes } from "../lib/starterRoutes";
+import type { ChatMessage } from "../types";
+
+export function AvaScreen() {
+  const { messages, busy, phase, send, stop, reset } = useAvaChat();
+  const name = useAuthStore((s) => s.user?.name?.split(" ")[0]);
+  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const starters = useMemo(() => starterRoutes(), []);
+  const last = messages[messages.length - 1];
+
+  // While Ava is thinking, keep the bottom in view; when her answer lands,
+  // scroll to the top of it so the reply is read before the result cards.
+  useEffect(() => {
+    if (!last) return;
+    const list = listRef.current;
+    if (!list) return;
+    if (last.pending) {
+      list.scrollToEnd({ animated: true });
+    } else if (last.role === "assistant") {
+      const index = messages.length - 1;
+      requestAnimationFrame(() => list.scrollToIndex({ index, viewPosition: 0, animated: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, last?.pending]);
+
+  return (
+    <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
+      <View style={styles.header}>
+        <Text style={type.h2}>Ava</Text>
+        {messages.length ? (
+          <Pressable accessibilityRole="button" onPress={reset} hitSlop={10}>
+            <Text style={styles.newChat}>New chat</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
+        {messages.length === 0 ? (
+          <View style={[styles.flex, styles.empty]}>
+            <Text style={type.h1}>{name ? `Hi ${name}, where to?` : "Where to next?"}</Text>
+            <Text style={type.bodySoft}>
+              Tell Ava your trip in your own words: cities, dates, budget, airline or cabin. She'll search live fares and
+              stays and pick the best options.
+            </Text>
+            <View style={styles.starters}>
+              {starters.map((s) => (
+                <Pressable
+                  key={s.title}
+                  accessibilityRole="button"
+                  accessibilityLabel={s.prompt}
+                  onPress={() => send(s.prompt)}
+                  style={({ pressed }) => [styles.starter, pressed && styles.pressed]}
+                >
+                  <Text style={type.h3}>{s.title}</Text>
+                  <Text style={type.bodySoft}>{s.subtitle}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <FlatList
+            ref={listRef}
+            style={styles.flex}
+            data={messages}
+            keyExtractor={(m) => m.id}
+            contentContainerStyle={styles.list}
+            keyboardShouldPersistTaps="handled"
+            onScrollToIndexFailed={({ index }) =>
+              setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0, animated: true }), 120)
+            }
+            renderItem={({ item }) => (
+              <MessageBubble message={item} phase={item.pending ? phase : null} onFollowUp={send} />
+            )}
+          />
+        )}
+        <Composer busy={busy} onSend={send} onStop={stop} />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+  },
+  newChat: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.accent },
+  empty: { padding: space.lg, gap: space.md },
+  starters: { gap: space.md, marginTop: space.sm },
+  starter: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: space.lg,
+    gap: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    ...shadow,
+  },
+  pressed: { opacity: 0.9 },
+  list: { padding: space.lg, gap: space.lg },
+});
