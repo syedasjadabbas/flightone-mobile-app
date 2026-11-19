@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Button, Card, Notice, Screen } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
-import { colors, fonts, space, type } from "@/core/theme/tokens";
+import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
 import {
   useAcceptPriceChangeMutation,
   useGetBookingQuery,
@@ -252,8 +253,45 @@ export function CheckoutScreen() {
         : "Booking";
 
   return (
-    <Screen edges={["left", "right", "bottom"]}>
+    <Screen
+      edges={["left", "right", "bottom"]}
+      footer={
+        isQuoted ? (
+          <View style={styles.payBar}>
+            <View style={styles.payRow}>
+              <View style={styles.flex}>
+                <Text style={styles.payLabel}>Total to pay</Text>
+                <Text style={styles.payAmount}>{formatMinor(payableMinor, booking.currency)}</Text>
+              </View>
+              <Button
+                label="Pay now"
+                onPress={onPay}
+                loading={busy === "pay"}
+                disabled={Boolean(busy) || Boolean(priceChange) || corporateBlocked}
+                style={styles.payBtn}
+              />
+            </View>
+            {!stay && supplierCap?.canReserve ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={Boolean(busy) || Boolean(priceChange)}
+                onPress={onHold}
+                style={({ pressed }) => [styles.holdLink, pressed && styles.pressed]}
+              >
+                {busy === "hold" ? <ActivityIndicator size="small" color={colors.accent} /> : <Ionicons name="time-outline" size={15} color={colors.accent} />}
+                <Text style={styles.holdText}>Hold seat, pay by bank transfer</Text>
+              </Pressable>
+            ) : null}
+            <View style={styles.secure}>
+              <Ionicons name="lock-closed" size={11} color={colors.inkFaint} />
+              <Text style={styles.secureText}>Secure payment · price confirmed by FlightOne</Text>
+            </View>
+          </View>
+        ) : undefined
+      }
+    >
       <Stack.Screen options={{ title }} />
+      <Steps current={ticketed ? 2 : booking.status === "RESERVED" ? 1 : 0} />
       <BookingSummary booking={booking} stay={stay} payableMinor={payableMinor} />
 
       {priceChange ? (
@@ -352,35 +390,72 @@ export function CheckoutScreen() {
 
       {message ? <Notice message={message} /> : null}
 
-      {isQuoted ? (
-        <View style={styles.actions}>
-          <Button
-            label={`Pay ${formatMinor(payableMinor, booking.currency)}`}
-            onPress={onPay}
-            loading={busy === "pay"}
-            disabled={Boolean(busy) || Boolean(priceChange) || corporateBlocked}
-          />
-          {!stay && supplierCap?.canReserve ? (
-            <Button
-              label="Hold seat, pay by bank transfer"
-              variant="ghost"
-              onPress={onHold}
-              loading={busy === "hold"}
-              disabled={Boolean(busy) || Boolean(priceChange)}
-            />
-          ) : null}
-        </View>
-      ) : null}
-
       {ticketed ? <Button label="Back to Ava" variant="ghost" onPress={() => router.navigate("/ava")} /> : null}
     </Screen>
   );
 }
 
+const STEPS = ["Traveller", "Payment", "Ticket"];
+
+/** Where you are in checkout: Traveller → Payment → Ticket. */
+function Steps({ current }: { current: number }) {
+  return (
+    <View style={styles.steps} accessibilityRole="progressbar" accessibilityLabel={`Step ${current + 1} of 3: ${STEPS[current]}`}>
+      {STEPS.map((label, i) => {
+        const done = i < current;
+        const now = i === current;
+        return (
+          <View key={label} style={styles.step}>
+            {i > 0 ? <View style={[styles.stepLine, (done || now) && styles.stepLineOn]} /> : null}
+            <View style={[styles.stepDot, done && styles.stepDotDone, now && styles.stepDotNow]}>
+              {done ? <Ionicons name="checkmark" size={12} color="#fff" /> : <Text style={[styles.stepNum, now && styles.stepNumNow]}>{i + 1}</Text>}
+            </View>
+            <Text style={[styles.stepLabel, (done || now) && styles.stepLabelOn]}>{label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  pressed: { opacity: 0.8 },
+  steps: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 0 },
+  step: { flexDirection: "row", alignItems: "center", gap: 6 },
+  stepLine: { width: 28, height: 2, borderRadius: 1, backgroundColor: colors.line, marginHorizontal: 6 },
+  stepLineOn: { backgroundColor: colors.accent },
+  stepDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: colors.line, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
+  stepDotDone: { backgroundColor: colors.success, borderColor: colors.success },
+  stepDotNow: { borderColor: colors.accent, backgroundColor: colors.accent },
+  stepNum: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.inkFaint },
+  stepNumNow: { color: "#fff" },
+  stepLabel: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.inkFaint },
+  stepLabelOn: { color: colors.ink },
+  payBar: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    paddingBottom: space.sm,
+    gap: space.sm,
+    shadowColor: "#0b1219",
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
+  },
+  payRow: { flexDirection: "row", alignItems: "center", gap: space.md },
+  payLabel: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.inkSoft },
+  payAmount: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  payBtn: { minWidth: 140 },
+  holdLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 36, borderRadius: radius.pill },
+  holdText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.accent },
+  secure: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  secureText: { fontFamily: fonts.body, fontSize: 11, color: colors.inkFaint },
   alert: { borderColor: colors.accent, borderWidth: 1 },
   strong: { fontFamily: fonts.bodyBold },
   transfer: { gap: 4, backgroundColor: colors.accentSoft, borderRadius: 10, padding: space.md },
   big: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, letterSpacing: 1 },
-  actions: { gap: space.sm, paddingBottom: space.xl },
 });

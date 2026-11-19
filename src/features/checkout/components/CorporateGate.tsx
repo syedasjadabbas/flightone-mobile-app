@@ -22,9 +22,12 @@ export function CorporateGate({ bookingId, gate, onChange }: { bookingId: string
   const violations = gate.policyEvaluation?.violations ?? [];
 
   return (
-    <Card>
-      <Text style={type.h3}>Company approval</Text>
-      <Tag label={STATUS_TEXT[status] ?? status.toLowerCase()} tone={gate.canProceed ? "success" : "accent"} />
+    <Card
+      title="Company approval"
+      icon="briefcase-outline"
+      tint="slate"
+      right={<Tag label={STATUS_TEXT[status] ?? status.toLowerCase()} tone={gate.canProceed ? "success" : "accent"} />}
+    >
       <Text style={type.bodySoft}>{gate.canProceed ? "You can pay now." : "Payment is blocked until this booking is approved."}</Text>
       {violations.map((v) => (
         <Text key={v.code} style={type.bodySoft}>

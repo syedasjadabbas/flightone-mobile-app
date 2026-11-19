@@ -23,11 +23,7 @@ export function RewardsCredit({ booking, onApplied }: { booking: BookingDetail; 
 
   if (applied?.creditMinor) {
     return (
-      <Card>
-        <View style={styles.head}>
-          <Text style={type.h3}>Rewards credit</Text>
-          <Tag label="Applied" tone="success" />
-        </View>
+      <Card title="Rewards credit" icon="diamond-outline" tint="amber" right={<Tag label="Applied" tone="success" />}>
         <Text style={type.body}>
           {applied.points?.toLocaleString()} points → {formatMinor(applied.creditMinor, booking.currency)} off
         </Text>
@@ -40,12 +36,13 @@ export function RewardsCredit({ booking, onApplied }: { booking: BookingDetail; 
   const preview = Number.isInteger(n) && n > 0 && pointValueMinor ? Math.min(n * pointValueMinor, booking.amountMinor) : 0;
 
   return (
-    <Card>
-      <View style={styles.head}>
-        <Text style={type.h3}>Rewards credit</Text>
-        <Tag label={`${balance.toLocaleString()} pts`} tone="accent" />
-      </View>
-      <Text style={type.bodySoft}>Use points as credit on this booking.</Text>
+    <Card
+      title="Rewards credit"
+      subtitle="Use points as credit on this booking"
+      icon="diamond-outline"
+      tint="amber"
+      right={<Tag label={`${balance.toLocaleString()} pts`} tone="accent" />}
+    >
       <View style={styles.row}>
         <View style={styles.flex}>
           <TextField
@@ -80,7 +77,6 @@ export function RewardsCredit({ booking, onApplied }: { booking: BookingDetail; 
 }
 
 const styles = StyleSheet.create({
-  head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   row: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
   flex: { flex: 1 },
   max: { marginTop: 22, minWidth: 70 },

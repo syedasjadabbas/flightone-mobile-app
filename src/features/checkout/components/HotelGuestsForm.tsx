@@ -24,9 +24,7 @@ export function HotelGuestsForm({
     });
 
   return (
-    <Card>
-      <Text style={type.h3}>Guest details</Text>
-      <Text style={type.bodySoft}>{occupancyText(stay.roomGuests)} · names as on passports</Text>
+    <Card title="Guest details" subtitle={`${occupancyText(stay.roomGuests)} · names as on passports`} icon="people-outline">
       {value.rooms.map((room, ri) => (
         <View key={ri} style={styles.room}>
           {value.rooms.length > 1 ? <Text style={type.label}>Room {ri + 1}</Text> : null}

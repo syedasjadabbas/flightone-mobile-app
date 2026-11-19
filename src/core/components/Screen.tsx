@@ -9,11 +9,14 @@ export function Screen({
   scroll = true,
   edges = ["top", "left", "right"],
   contentStyle,
+  footer,
 }: {
   children: ReactNode;
   scroll?: boolean;
   edges?: Edge[];
   contentStyle?: ViewStyle;
+  /** Pinned below the scrolling content (e.g. a Pay bar); moves up with the keyboard. */
+  footer?: ReactNode;
 }) {
   return (
     <SafeAreaView style={styles.root} edges={edges}>
@@ -28,6 +31,7 @@ export function Screen({
         ) : (
           <View style={[styles.flex, styles.content, contentStyle]}>{children}</View>
         )}
+        {footer}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

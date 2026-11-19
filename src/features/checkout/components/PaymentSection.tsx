@@ -50,8 +50,7 @@ export function PaymentSection({
   const isHotel = booking.product === "HOTEL";
 
   return (
-    <Card>
-      <Text style={type.h3}>Payment</Text>
+    <Card title="Payment" subtitle="Charged in your booking currency" icon="card-outline">
       {isHotel ? <Text style={type.bodySoft}>Hotels are confirmed the moment you pay, so card payment is used.</Text> : null}
       <ChoiceRow
         label="Pay with"
@@ -98,7 +97,7 @@ export function PaymentSection({
       ) : null}
 
       {method === "corporate_credit" ? (
-        <Text style={type.bodySoft}>Charged to your company's credit line. The server checks your available credit and approval.</Text>
+        <Text style={type.bodySoft}>Charged to your company&apos;s credit line. The server checks your available credit and approval.</Text>
       ) : null}
 
       {method === "onelink_ibft" ? (
