@@ -23,8 +23,6 @@ export type BookingDetail = {
   product: "FLIGHT" | "HOTEL" | "PACKAGE";
   currency: string;
   amountMinor: number;
-  netMinor: number;
-  marginMinor: number;
   supplierCode: string | null;
   externalRef: string | null;
   quoteExpiresAt: string | null;
