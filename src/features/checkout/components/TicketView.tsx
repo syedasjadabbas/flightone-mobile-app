@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
@@ -10,6 +10,8 @@ import type { BookingDetail } from "../api/types";
 import { formatMinor, voucherRefsFromMetadata } from "../lib/checkoutDisplay";
 import type { HotelStay } from "../lib/hotelStay";
 import { buildTicketDocument, formatDuration, formatFlightNumber, type TicketSegment } from "../lib/ticketDocument";
+import { flightTicketHtml, hotelVoucherHtml } from "../lib/ticketHtml";
+import { makeTicketPdf, printTicket, sharePdf } from "../lib/ticketPdf";
 
 /** "Thu 10 Dec" from "2026-12-10". */
 function niceDate(iso?: string | null): string | null {
@@ -82,22 +84,78 @@ function Leg({ s }: { s: TicketSegment }) {
   );
 }
 
+/** E-ticket document actions: save as PDF, share the PDF, print. */
+function TicketDocActions({ html, fileName, title }: { html: string; fileName: string; title: string }) {
+  const [busy, setBusy] = useState<null | "pdf" | "print">(null);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (kind: "pdf" | "print") => {
+    setError(null);
+    setBusy(kind);
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      if (kind === "print") await printTicket(html);
+      else await sharePdf(await makeTicketPdf(html, fileName), title);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      // Closing the print dialog isn't an error worth showing.
+      if (!/cancel/i.test(msg)) setError(msg || "Couldn't create the e-ticket. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <View style={styles.doc}>
+      <View style={styles.docHead}>
+        <View style={styles.docIcon}>
+          <Ionicons name="document-text" size={20} color={colors.accent} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={styles.docTitle}>{title}</Text>
+          <Text style={styles.docSub}>PDF · save to Files, share or print</Text>
+        </View>
+      </View>
+      <View style={styles.actionRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Download or share the e-ticket as a PDF"
+          disabled={Boolean(busy)}
+          onPress={() => void run("pdf")}
+          style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+        >
+          {busy === "pdf" ? <ActivityIndicator color={colors.onBtn} /> : <Ionicons name="download-outline" size={18} color={colors.onBtn} />}
+          <Text style={styles.primaryText}>Download / Share PDF</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Print the e-ticket"
+          disabled={Boolean(busy)}
+          onPress={() => void run("print")}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+        >
+          {busy === "print" ? <ActivityIndicator color={colors.ink} /> : <Ionicons name="print-outline" size={20} color={colors.ink} />}
+        </Pressable>
+      </View>
+      {error ? <Text style={styles.docError}>{error}</Text> : null}
+    </View>
+  );
+}
+
 function Actions({ share }: { share: string }) {
   return (
     <View style={styles.actions}>
       <View style={styles.actionRow}>
-        <Pressable accessibilityRole="button" onPress={() => router.navigate("/trips")} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-          <Ionicons name="briefcase-outline" size={17} color={colors.onBtn} />
-          <Text style={styles.primaryText}>View in Trips</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.navigate("/trips")} style={({ pressed }) => [styles.secondary, styles.flex, pressed && styles.pressed]}>
+          <Ionicons name="briefcase-outline" size={17} color={colors.ink} />
+          <Text style={styles.secondaryText}>View in Trips</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Share booking"
+          accessibilityLabel="Share booking details as text"
           onPress={() => void Share.share({ message: share }).catch(() => {})}
           style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
         >
-          <Ionicons name="share-outline" size={18} color={colors.ink} />
-          <Text style={styles.secondaryText}>Share</Text>
+          <Ionicons name="chatbubble-outline" size={17} color={colors.ink} />
+          <Text style={styles.secondaryText}>Send details</Text>
         </Pressable>
       </View>
       <Pressable accessibilityRole="button" onPress={() => router.navigate("/ava")} style={({ pressed }) => [styles.link, pressed && styles.pressed]}>
@@ -154,6 +212,16 @@ export function TicketView({ booking, stay }: { booking: BookingDetail; stay: Ho
             <Text style={styles.paidValue}>{formatMinor(booking.amountMinor, booking.currency)}</Text>
           </View>
         </View>
+        <TicketDocActions
+          title="Hotel voucher"
+          fileName={`FlightOne-Voucher-${confirmation ?? booking.id.slice(-8).toUpperCase()}`}
+          html={hotelVoucherHtml(stay, {
+            bookingRef: booking.id.slice(-8).toUpperCase(),
+            confirmation,
+            currency: booking.currency,
+            amountMinor: booking.amountMinor,
+          })}
+        />
         <Actions share={share} />
       </>
     );
@@ -237,6 +305,11 @@ export function TicketView({ booking, stay }: { booking: BookingDetail; stay: Ho
           </View>
         </View>
       </View>
+      <TicketDocActions
+        title={t.demo ? "Demo e-ticket" : "E-ticket"}
+        fileName={`FlightOne-eTicket-${t.pnr ?? booking.id.slice(-8).toUpperCase()}`}
+        html={flightTicketHtml(t, { bookingRef: booking.id.slice(-8).toUpperCase() })}
+      />
       <Actions share={share} />
     </>
   );
@@ -316,6 +389,22 @@ const styles = StyleSheet.create({
   paidValue: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
 
   actions: { gap: space.sm, paddingBottom: space.lg },
+  doc: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md + 6,
+    padding: space.lg,
+    gap: space.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    ...shadow,
+    shadowOpacity: 0.06,
+  },
+  docHead: { flexDirection: "row", alignItems: "center", gap: space.md },
+  docIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" },
+  docTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.ink },
+  docSub: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
+  docError: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.danger },
+  iconBtn: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
   actionRow: { flexDirection: "row", gap: space.sm },
   primary: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm, minHeight: 50, borderRadius: radius.pill, backgroundColor: colors.btn },
   primaryText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onBtn },
