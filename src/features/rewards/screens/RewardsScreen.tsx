@@ -4,7 +4,8 @@ import { Stack } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { Button, Card, EmptyState, Notice, PageHeader, Screen, SectionLabel, TextField, TINT } from "@/core/components";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import { Button, Card, EmptyState, Notice, Screen, SectionLabel, TextField, TINT } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { colors, fonts, radius, space } from "@/core/theme/tokens";
 import { ToneTag } from "@/features/vault/components/ToneTag";
@@ -35,7 +36,22 @@ function LedgerRow({ e, last }: { e: RewardLedgerEntry; last: boolean }) {
   );
 }
 
-/** Points balance, tier progress, referrals and the points history. */
+/** "November 2026" for grouping the history. */
+const monthOf = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+function HowTile({ icon, title, body }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }) {
+  return (
+    <View style={styles.how}>
+      <View style={[styles.badge, { backgroundColor: TINT.amber.bg }]}>
+        <Ionicons name={icon} size={17} color={TINT.amber.fg} />
+      </View>
+      <Text style={styles.howTitle}>{title}</Text>
+      <Text style={styles.howBody}>{body}</Text>
+    </View>
+  );
+}
+
+/** Points balance, tier progress, how it works, tier ladder, referrals and the points history. */
 export function RewardsScreen() {
   const { data: summary, isLoading, error, refetch } = useRewardsSummaryQuery();
   const [page, setPage] = useState(1);
@@ -98,20 +114,6 @@ export function RewardsScreen() {
   return (
     <Screen edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Rewards" }} />
-      <PageHeader
-        icon="diamond"
-        tint="amber"
-        subtitle="Earn points on every ticketed booking and use them as credit at checkout."
-        stats={
-          summary
-            ? [
-                { value: points(summary.lifetimeEarned), label: "Lifetime pts" },
-                { value: refs.length, label: "Friends joined" },
-                { value: rewarded, label: "Rewarded" },
-              ]
-            : undefined
-        }
-      />
       {error ? (
         <>
           <Notice message={formatApiError(error, "We couldn't load your rewards.")} />
@@ -121,44 +123,103 @@ export function RewardsScreen() {
 
       {summary ? (
         <View style={styles.hero}>
+          {/* Card finish: deep navy with a warm gold sheen. */}
+          <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
+            <Defs>
+              <LinearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#1d2a38" />
+                <Stop offset="0.55" stopColor={colors.night} />
+                <Stop offset="1" stopColor="#3a2c12" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100" height="100" fill="url(#card)" />
+          </Svg>
           <View style={styles.heroTop}>
+            <View style={styles.brand}>
+              <Ionicons name="airplane" size={14} color="#f5c26b" />
+              <Text style={styles.brandText}>FlightOne Rewards</Text>
+            </View>
             <View style={styles.tier}>
-              <Ionicons name="diamond" size={13} color="#f5c26b" />
+              <Ionicons name="diamond" size={12} color="#f5c26b" />
               <Text style={styles.tierText}>{nice(summary.tier)}</Text>
             </View>
-            <Text style={styles.heroSoft}>Lifetime {points(summary.lifetimeEarned)} pts</Text>
           </View>
           <View>
             <Text style={styles.balance} accessibilityLabel={`${points(summary.balance)} points available`}>
               {points(summary.balance)}
             </Text>
-            <Text style={styles.heroSoft}>points available</Text>
+            <Text style={styles.heroSoft}>
+              points available
+              {summary.balance > 0 && summary.policy.pointValueMinor
+                ? ` · worth about ${Math.round((summary.balance * summary.policy.pointValueMinor) / 100).toLocaleString("en-US")} off at checkout`
+                : ""}
+            </Text>
           </View>
           {p?.nextTier ? (
             <View style={styles.progress}>
-              <View style={styles.progressLabels}>
-                <Text style={styles.heroLabel}>{nice(p.tier)}</Text>
-                <Text style={styles.heroLabel}>{nice(p.nextTier)}</Text>
-              </View>
               <View style={styles.bar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(ratio * 100) }}>
-                <View style={[styles.fill, { width: `${Math.round(ratio * 100)}%` }]} />
+                <View style={[styles.fill, { width: `${Math.max(3, Math.round(ratio * 100))}%` }]} />
               </View>
               <Text style={styles.heroSoft}>
                 <Text style={styles.heroStrong}>{points(p.pointsToNext)} points</Text> to {nice(p.nextTier)}
               </Text>
             </View>
           ) : (
-            <Text style={styles.heroSoft}>You&apos;ve reached the top tier.</Text>
+            <Text style={styles.heroSoft}>You&apos;ve reached the top tier. Enjoy the perks.</Text>
           )}
-          {summary.balance === 0 ? (
-            <View style={styles.tip}>
-              <Ionicons name="bulb-outline" size={16} color="#f5c26b" />
-              <Text style={[styles.heroSoft, styles.flex]}>
-                Earn {summary.policy.earnPointsPerHundredMinor} points for every 100 you spend on ticketed bookings. Use them as credit at checkout.
-              </Text>
+          <View style={styles.heroStats}>
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatValue}>{points(summary.lifetimeEarned)}</Text>
+              <Text style={styles.heroLabel}>Lifetime pts</Text>
             </View>
-          ) : null}
+            <View style={[styles.heroStat, styles.heroStatDivider]}>
+              <Text style={styles.heroStatValue}>{refs.length}</Text>
+              <Text style={styles.heroLabel}>Friends joined</Text>
+            </View>
+            <View style={[styles.heroStat, styles.heroStatDivider]}>
+              <Text style={styles.heroStatValue}>{rewarded}</Text>
+              <Text style={styles.heroLabel}>Rewarded</Text>
+            </View>
+          </View>
         </View>
+      ) : null}
+
+      {summary ? (
+        <>
+          <SectionLabel>How it works</SectionLabel>
+          <View style={styles.hows}>
+            <HowTile icon="airplane-outline" title="Book" body={`${summary.policy.earnPointsPerHundredMinor} pts per 100 spent`} />
+            <HowTile icon="gift-outline" title="Invite" body={`+${points(summary.policy.referralBonusPoints)} pts each`} />
+            <HowTile
+              icon="card-outline"
+              title="Use"
+              body={summary.policy.creditExpiryDays ? `At checkout · ${summary.policy.creditExpiryDays}-day expiry` : "As credit at checkout"}
+            />
+          </View>
+        </>
+      ) : null}
+
+      {summary?.policy.tierThresholds?.length ? (
+        <Card title="Tiers" subtitle={summary.policy.tierNotes || "Climb by earning points on ticketed trips."} icon="podium-outline" tint="amber">
+          {summary.policy.tierThresholds.map((t, i, all) => {
+            const current = t.tier === summary.tier;
+            const reached = summary.lifetimeEarned >= t.minInclusive;
+            return (
+              <View key={t.tier} style={[styles.tierRow, i < all.length - 1 && styles.divider]}>
+                <View style={[styles.tierDot, reached && styles.tierDotOn, current && styles.tierDotNow]}>
+                  {reached ? <Ionicons name={current ? "diamond" : "checkmark"} size={12} color="#fff" /> : null}
+                </View>
+                <Text style={[styles.tierName, current && styles.tierNameNow]}>{nice(t.tier)}</Text>
+                {current ? (
+                  <View style={styles.here}>
+                    <Text style={styles.hereText}>You&apos;re here</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.tierMin}>{t.minInclusive ? `${points(t.minInclusive)}+ pts` : "Start"}</Text>
+              </View>
+            );
+          })}
+        </Card>
       ) : null}
 
       {message ? <Notice tone={message.tone} message={message.text} /> : null}
@@ -237,9 +298,17 @@ export function RewardsScreen() {
       <SectionLabel right={totalPages > 1 ? <Text style={styles.pageText}>Page {page} of {totalPages}</Text> : undefined}>Points history</SectionLabel>
       {ledger?.items.length ? (
         <Card style={styles.list}>
-          {ledger.items.map((e, i) => (
-            <LedgerRow key={e.id} e={e} last={i === ledger.items.length - 1} />
-          ))}
+          {ledger.items.map((e, i) => {
+            const month = monthOf(e.createdAt);
+            const newMonth = i === 0 || monthOf(ledger.items[i - 1].createdAt) !== month;
+            const lastOfMonth = i === ledger.items.length - 1 || monthOf(ledger.items[i + 1].createdAt) !== month;
+            return (
+              <View key={e.id}>
+                {newMonth ? <Text style={[styles.month, i > 0 && styles.monthGap]}>{month}</Text> : null}
+                <LedgerRow e={e} last={lastOfMonth} />
+              </View>
+            );
+          })}
           {totalPages > 1 ? (
             <View style={[styles.row, styles.pager]}>
               <Button label="Newer" variant="ghost" disabled={page <= 1} onPress={() => setPage((n) => n - 1)} style={styles.flex} />
@@ -260,7 +329,36 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
 
-  hero: { backgroundColor: colors.night, borderRadius: radius.md + 8, padding: space.xl, gap: space.lg },
+  hero: { backgroundColor: colors.night, borderRadius: radius.md + 10, padding: space.xl, gap: space.lg, overflow: "hidden" },
+  brand: { flexDirection: "row", alignItems: "center", gap: 6 },
+  brandText: { fontFamily: fonts.bodyBold, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "rgba(255,255,255,0.75)" },
+  heroStats: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: radius.md, paddingVertical: space.md },
+  heroStat: { flex: 1, alignItems: "center", gap: 2 },
+  heroStatDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: "rgba(255,255,255,0.15)" },
+  heroStatValue: { fontFamily: fonts.display, fontSize: 16, color: "#fff" },
+  hows: { flexDirection: "row", gap: space.sm },
+  how: {
+    flex: 1,
+    gap: 6,
+    backgroundColor: colors.card,
+    borderRadius: radius.md + 2,
+    padding: space.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+  },
+  howTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.ink },
+  howBody: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, color: colors.inkSoft },
+  tierRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
+  tierDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
+  tierDotOn: { backgroundColor: "#d9a441", borderColor: "#d9a441" },
+  tierDotNow: { backgroundColor: "#b26a00", borderColor: "#b26a00" },
+  tierName: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.inkSoft },
+  tierNameNow: { color: colors.ink },
+  here: { backgroundColor: "#fdf1dc", borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  hereText: { fontFamily: fonts.bodyBold, fontSize: 10, color: "#8a5a00" },
+  tierMin: { marginLeft: "auto", fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.inkSoft },
+  month: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: colors.inkFaint, paddingTop: space.md },
+  monthGap: { marginTop: space.sm },
   heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   tier: {
     flexDirection: "row",

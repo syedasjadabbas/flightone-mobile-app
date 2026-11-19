@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { Button, Card, Notice, Screen } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
@@ -390,7 +390,6 @@ export function CheckoutScreen() {
 
       {message ? <Notice message={message} /> : null}
 
-      {ticketed ? <Button label="Back to Ava" variant="ghost" onPress={() => router.navigate("/ava")} /> : null}
     </Screen>
   );
 }
