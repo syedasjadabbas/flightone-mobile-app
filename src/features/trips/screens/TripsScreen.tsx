@@ -5,12 +5,12 @@ import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { EmptyState, Notice } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
-import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
+import { colors, fonts, radius, space } from "@/core/theme/tokens";
 import { useJourneyWatchesQuery } from "../api/journeyApi";
 import { NextTripCard } from "../components/NextTripCard";
 import { TripRow } from "../components/TripRow";
 import { journeyHeadline } from "../lib/journeySteps";
-import { groupByMonth, localToday, matchesQuery, sortTrips, tripView, type TripView } from "../lib/tripList";
+import { countdownLabel, groupByMonth, localToday, matchesQuery, sortTrips, tripDay, tripView, type TripView } from "../lib/tripList";
 
 const VIEWS: { key: TripView; label: string }[] = [
   { key: "upcoming", label: "Upcoming" },
@@ -28,6 +28,7 @@ export function TripsScreen() {
   const { data, isLoading, isFetching, error, refetch } = useJourneyWatchesQuery();
   const [view, setView] = useState<TripView>("upcoming");
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const today = localToday();
 
   const items = useMemo(() => data?.items ?? [], [data]);
@@ -51,15 +52,42 @@ export function TripsScreen() {
   const header = (
     <View style={styles.header}>
       <View style={styles.titleRow}>
-        <Text style={type.h1}>Trips</Text>
+        <View style={styles.flex}>
+          <Text style={styles.title}>Trips</Text>
+          <Text style={styles.summary} numberOfLines={1}>
+            {isLoading
+              ? "Loading your trips…"
+              : !items.length
+                ? "Your bookings will appear here"
+                : [
+                    `${counts.upcoming} upcoming`,
+                    hero ? (countdownLabel(tripDay(hero), today) ?? "").replace(/^In /, "next in ").replace(/^Today$/, "next today").replace(/^Tomorrow$/, "next tomorrow") : null,
+                    counts.past ? `${counts.past} past` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+          </Text>
+        </View>
+        {items.length >= SEARCH_FROM ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={searchOpen ? "Close search" : "Search trips"}
+            onPress={() => {
+              if (searchOpen) setQuery("");
+              setSearchOpen((v) => !v);
+            }}
+            style={({ pressed }) => [styles.roundBtn, searchOpen && styles.roundBtnOn, pressed && styles.pressed]}
+          >
+            <Ionicons name={searchOpen ? "close" : "search"} size={19} color={searchOpen ? colors.onBtn : colors.ink} />
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Plan a new trip with Ava"
           onPress={() => router.navigate("/ava")}
-          style={({ pressed }) => [styles.newBtn, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.roundBtn, styles.roundBtnDark, pressed && styles.pressed]}
         >
-          <Ionicons name="add" size={18} color={colors.onBtn} />
-          <Text style={styles.newText}>New trip</Text>
+          <Ionicons name="add" size={22} color={colors.onBtn} />
         </Pressable>
       </View>
 
@@ -86,7 +114,7 @@ export function TripsScreen() {
         </View>
       ) : null}
 
-      {items.length >= SEARCH_FROM ? (
+      {searchOpen ? (
         <View style={styles.search}>
           <Ionicons name="search" size={17} color={colors.inkFaint} />
           <TextInput
@@ -98,6 +126,7 @@ export function TripsScreen() {
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="search"
+            autoFocus
             accessibilityLabel="Search trips"
           />
           {query ? (
@@ -169,7 +198,22 @@ const styles = StyleSheet.create({
   list: { padding: space.lg, paddingBottom: space.xxl },
   header: { gap: space.md, marginBottom: space.xs },
   pressed: { opacity: 0.85 },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  flex: { flex: 1 },
+  title: { fontFamily: fonts.display, fontSize: 30, lineHeight: 36, color: colors.ink },
+  summary: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.inkSoft, marginTop: 2 },
+  roundBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+  },
+  roundBtnOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  roundBtnDark: { backgroundColor: colors.btn, borderColor: colors.btn },
   newBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.btn, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },
   newText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.onBtn },
 
