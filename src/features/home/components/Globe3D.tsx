@@ -7,6 +7,38 @@ import { fibonacciSphere, greatCircle, latLonToVec, project, yawFacing, type Vec
 
 export type GlobePlace = { code: string; lat: number; lon: number };
 
+/** Colours for the light (default) and night (premium hero) looks. */
+const LOOK = {
+  light: {
+    sphere: ["#ffffff", colors.bgGlow, "#cfe3ee"],
+    halo: colors.accent,
+    dot: colors.ink,
+    dotFront: 0.6,
+    dotBack: 0.07,
+    arc: colors.accent,
+    plane: colors.accent,
+    destFill: colors.card,
+    destStroke: colors.accent,
+    label: colors.ink,
+    origin: colors.ink,
+    originRing: colors.card,
+  },
+  night: {
+    sphere: ["#1d4a66", "#0e2a3d", "#071521"],
+    halo: "#7fd3f7",
+    dot: "#7fd3f7",
+    dotFront: 0.75,
+    dotBack: 0.1,
+    arc: "#7fd3f7",
+    plane: "#f5c26b",
+    destFill: "#0b1219",
+    destStroke: "#7fd3f7",
+    label: "#ffffff",
+    origin: "#f5c26b",
+    originRing: "#0b1219",
+  },
+} as const;
+
 const DOTS = 340;
 const ARC_STEPS = 44;
 const TILT = 0.38; // look slightly down on the globe (radians)
@@ -19,7 +51,19 @@ const PLANE_LOOP_MS = 3600;
  * Drag to spin (with a little inertia). Pauses off-screen / in background, and
  * holds still for "Reduce Motion". Pure SVG — runs in Expo Go.
  */
-export function Globe3D({ size, origin, destinations }: { size: number; origin: GlobePlace; destinations: GlobePlace[] }) {
+export function Globe3D({
+  size,
+  origin,
+  destinations,
+  variant = "light",
+}: {
+  size: number;
+  origin: GlobePlace;
+  destinations: GlobePlace[];
+  /** "night" for a dark hero background. */
+  variant?: keyof typeof LOOK;
+}) {
+  const look = LOOK[variant];
   const R = size * 0.42;
   const c = size / 2;
   const dots = useMemo(() => fibonacciSphere(DOTS), []);
@@ -136,8 +180,8 @@ export function Globe3D({ size, origin, destinations }: { size: number; origin: 
     const p = toScreen(d);
     const front = p.z > 0;
     const r = front ? 0.9 + 1.5 * p.z : 0.7;
-    const opacity = front ? 0.22 + 0.6 * p.z : 0.07;
-    return <Circle key={i} cx={p.x} cy={p.y} r={r} fill={colors.ink} opacity={opacity} />;
+    const opacity = front ? 0.22 + look.dotFront * p.z : look.dotBack;
+    return <Circle key={i} cx={p.x} cy={p.y} r={r} fill={look.dot} opacity={opacity} />;
   });
 
   const arcEls = routes.map((route) => {
@@ -156,17 +200,17 @@ export function Globe3D({ size, origin, destinations }: { size: number; origin: 
     const dest = toScreen(route.vec);
     return (
       <G key={route.code}>
-        {d ? <Path d={d} stroke={colors.accent} strokeWidth={1.6} strokeOpacity={0.75} fill="none" strokeLinecap="round" /> : null}
+        {d ? <Path d={d} stroke={look.arc} strokeWidth={1.6} strokeOpacity={0.8} fill="none" strokeLinecap="round" /> : null}
         {plane.z > 0 && !reduceMotion ? (
           <>
-            <Circle cx={plane.x} cy={plane.y} r={6} fill={colors.accent} opacity={0.18} />
-            <Circle cx={plane.x} cy={plane.y} r={2.6} fill={colors.accent} />
+            <Circle cx={plane.x} cy={plane.y} r={6.5} fill={look.plane} opacity={0.22} />
+            <Circle cx={plane.x} cy={plane.y} r={2.8} fill={look.plane} />
           </>
         ) : null}
         {dest.z > 0 ? (
           <>
-            <Circle cx={dest.x} cy={dest.y} r={3.2} fill={colors.card} stroke={colors.accent} strokeWidth={1.5} />
-            <SvgText x={dest.x + 6} y={dest.y - 6} fontSize={10} fontFamily={fonts.bodySemi} fill={colors.ink} opacity={0.4 + 0.6 * dest.z}>
+            <Circle cx={dest.x} cy={dest.y} r={3.2} fill={look.destFill} stroke={look.destStroke} strokeWidth={1.5} />
+            <SvgText x={dest.x + 6} y={dest.y - 6} fontSize={10} fontFamily={fonts.bodySemi} fill={look.label} opacity={0.45 + 0.55 * dest.z}>
               {route.code}
             </SvgText>
           </>
@@ -189,14 +233,14 @@ export function Globe3D({ size, origin, destinations }: { size: number; origin: 
       <Svg width={size} height={size}>
         <Defs>
           <RadialGradient id="sphere" cx="42%" cy="36%" r="62%">
-            <Stop offset="0" stopColor="#ffffff" stopOpacity="1" />
-            <Stop offset="0.7" stopColor={colors.bgGlow} stopOpacity="1" />
-            <Stop offset="1" stopColor="#cfe3ee" stopOpacity="1" />
+            <Stop offset="0" stopColor={look.sphere[0]} stopOpacity="1" />
+            <Stop offset="0.7" stopColor={look.sphere[1]} stopOpacity="1" />
+            <Stop offset="1" stopColor={look.sphere[2]} stopOpacity="1" />
           </RadialGradient>
           <RadialGradient id="halo" cx="50%" cy="50%" r="50%">
-            <Stop offset="0.78" stopColor={colors.accent} stopOpacity="0" />
-            <Stop offset="0.9" stopColor={colors.accent} stopOpacity="0.14" />
-            <Stop offset="1" stopColor={colors.accent} stopOpacity="0" />
+            <Stop offset="0.78" stopColor={look.halo} stopOpacity="0" />
+            <Stop offset="0.9" stopColor={look.halo} stopOpacity={variant === "night" ? "0.28" : "0.14"} />
+            <Stop offset="1" stopColor={look.halo} stopOpacity="0" />
           </RadialGradient>
         </Defs>
         <Circle cx={c} cy={c} r={R * 1.18} fill="url(#halo)" />
@@ -205,9 +249,9 @@ export function Globe3D({ size, origin, destinations }: { size: number; origin: 
         {arcEls}
         {o.z > 0 ? (
           <G>
-            {!reduceMotion ? <Circle cx={o.x} cy={o.y} r={5 + pulse * 12} fill={colors.accent} opacity={0.35 * (1 - pulse)} /> : null}
-            <Circle cx={o.x} cy={o.y} r={5} fill={colors.ink} stroke={colors.card} strokeWidth={2} />
-            <SvgText x={o.x + 8} y={o.y + 14} fontSize={11} fontFamily={fonts.bodyBold} fill={colors.ink}>
+            {!reduceMotion ? <Circle cx={o.x} cy={o.y} r={5 + pulse * 12} fill={look.origin} opacity={0.35 * (1 - pulse)} /> : null}
+            <Circle cx={o.x} cy={o.y} r={5} fill={look.origin} stroke={look.originRing} strokeWidth={2} />
+            <SvgText x={o.x + 8} y={o.y + 14} fontSize={11} fontFamily={fonts.bodyBold} fill={look.label}>
               {origin.code}
             </SvgText>
           </G>
