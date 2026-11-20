@@ -175,7 +175,7 @@ export function VaultScreen() {
 
       {docs.length ? (
         <>
-          <TextField label="Search" icon="search" placeholder="Title, type, destination…" value={query} onChangeText={setQuery} />
+          <TextField label="Search documents" hideLabel icon="search" placeholder="Search title, type, destination…" value={query} onChangeText={setQuery} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills} style={styles.pillScroll}>
             {CATEGORIES.map((c) => {
               const n = docs.filter((d) => inCategory(d, c.key)).length;

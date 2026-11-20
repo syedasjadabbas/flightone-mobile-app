@@ -120,6 +120,7 @@ function HelpTab({ onOpenCase }: { onOpenCase: () => void }) {
       <ConsultantCard onOpenCase={onOpenCase} />
       <TextField
         label="Search answers"
+        hideLabel
         icon="search"
         value={query}
         onChangeText={setQuery}

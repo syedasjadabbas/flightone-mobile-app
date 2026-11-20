@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { Button, Card, Notice, TextField, DateField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
+import { space } from "@/core/theme/tokens";
 import { ChoiceRow } from "@/features/checkout/components/ChoiceRow";
 import { useUpdateProfileMutation, type ProfilePatch, type TravellerProfile } from "../api/profileApi";
 
@@ -14,13 +16,38 @@ type Cabin = (typeof CABINS)[number]["value"];
 
 const orNull = (s: string) => (s.trim() ? s.trim() : null);
 
+const SEATS = [
+  { value: "Window", label: "Window" },
+  { value: "Aisle", label: "Aisle" },
+  { value: "ANY", label: "No preference" },
+];
+const LAYOVERS = [
+  { value: "120", label: "2 h" },
+  { value: "240", label: "4 h" },
+  { value: "480", label: "8 h" },
+  { value: "ANY", label: "Any" },
+];
+/** Match a saved free-text seat ("window seat", "AISLE") to a chip. */
+function seatChip(v: string) {
+  const l = v.trim().toLowerCase();
+  if (!l) return "ANY";
+  if (l.includes("window")) return "Window";
+  if (l.includes("aisle")) return "Aisle";
+  return undefined;
+}
+
 /** Traveller preferences (PATCH /profile) — same fields and limits as the web form. */
 export function PreferencesSection({ profile }: { profile: TravellerProfile }) {
   const [update, { isLoading }] = useUpdateProfileMutation();
   const [form, setForm] = useState(() => toForm(profile));
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
-  useEffect(() => setForm(toForm(profile)), [profile]);
+  // Refill the form when the saved profile changes (e.g. after saving), without an effect.
+  const [seenProfile, setSeenProfile] = useState(profile);
+  if (profile !== seenProfile) {
+    setSeenProfile(profile);
+    setForm(toForm(profile));
+  }
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
@@ -60,39 +87,58 @@ export function PreferencesSection({ profile }: { profile: TravellerProfile }) {
   };
 
   return (
-    <Card>
-      <TextField label="Name" value={form.displayName} onChangeText={set("displayName")} />
-      <TextField label="Phone" value={form.phone} onChangeText={set("phone")} keyboardType="phone-pad" />
-      <TextField
-        label="Nationality"
-        hint="2-letter country code"
-        value={form.nationality}
-        onChangeText={(t) => set("nationality")(t.toUpperCase().slice(0, 2))}
-        autoCapitalize="characters"
-        maxLength={2}
-      />
-      <DateField label="Date of birth" value={form.dateOfBirth} onChange={set("dateOfBirth")} maximumDate={new Date()} />
-      <ChoiceRow label="Preferred cabin" options={[...CABINS]} value={form.preferredCabin as Cabin} onChange={set("preferredCabin")} />
-      <TextField label="Seat preference" placeholder="Aisle, window…" value={form.seatPref} onChangeText={set("seatPref")} />
-      <TextField label="Meal preference" placeholder="Halal, vegetarian…" value={form.mealPref} onChangeText={set("mealPref")} />
-      <TextField
-        label="Preferred airlines"
-        hint="Airline codes, comma separated, e.g. EK, QR"
-        value={form.preferredAirlines}
-        onChangeText={set("preferredAirlines")}
-        autoCapitalize="characters"
-      />
-      <TextField
-        label="Max layover (minutes)"
-        value={form.maxLayoverMinutes}
-        onChangeText={set("maxLayoverMinutes")}
-        keyboardType="number-pad"
-      />
-      {message ? <Notice tone={message.tone} message={message.text} /> : null}
-      <Button label="Save preferences" onPress={save} loading={isLoading} />
-    </Card>
+    <>
+      <Card title="About you" subtitle="Used on tickets, exactly as on your passport" icon="person-outline">
+        <TextField label="Full name" icon="person-outline" value={form.displayName} onChangeText={set("displayName")} />
+        <TextField label="Phone" icon="call-outline" value={form.phone} onChangeText={set("phone")} keyboardType="phone-pad" />
+        <View style={styles.pair}>
+          <View style={styles.narrow}>
+            <TextField
+              label="Nationality"
+              hint="e.g. PK"
+              value={form.nationality}
+              onChangeText={(t) => set("nationality")(t.toUpperCase().slice(0, 2))}
+              autoCapitalize="characters"
+              maxLength={2}
+            />
+          </View>
+          <View style={styles.flex}>
+            <DateField label="Date of birth" value={form.dateOfBirth} onChange={set("dateOfBirth")} maximumDate={new Date()} />
+          </View>
+        </View>
+      </Card>
+
+      <Card title="Travel preferences" subtitle="Ava uses these when she searches" icon="airplane-outline" tint="teal">
+        <ChoiceRow label="Cabin" options={[...CABINS]} value={form.preferredCabin as Cabin} onChange={set("preferredCabin")} />
+        <ChoiceRow label="Seat" options={SEATS} value={seatChip(form.seatPref)} onChange={(v) => set("seatPref")(v === "ANY" ? "" : v)} />
+        <ChoiceRow
+          label="Longest layover"
+          options={LAYOVERS}
+          value={form.maxLayoverMinutes.trim() ? (LAYOVERS.some((l) => l.value === form.maxLayoverMinutes.trim()) ? form.maxLayoverMinutes.trim() : undefined) : "ANY"}
+          onChange={(v) => set("maxLayoverMinutes")(v === "ANY" ? "" : v)}
+        />
+        <TextField label="Meal" icon="restaurant-outline" placeholder="Halal, vegetarian…" value={form.mealPref} onChangeText={set("mealPref")} />
+        <TextField
+          label="Favourite airlines"
+          icon="ribbon-outline"
+          placeholder="EK, QR, TK"
+          hint="Airline codes, comma separated"
+          value={form.preferredAirlines}
+          onChangeText={set("preferredAirlines")}
+          autoCapitalize="characters"
+        />
+        {message ? <Notice tone={message.tone} message={message.text} /> : null}
+        <Button label="Save changes" onPress={save} loading={isLoading} />
+      </Card>
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  pair: { flexDirection: "row", gap: space.sm, alignItems: "flex-start" },
+  narrow: { width: 108 },
+});
 
 function toForm(p: TravellerProfile) {
   return {

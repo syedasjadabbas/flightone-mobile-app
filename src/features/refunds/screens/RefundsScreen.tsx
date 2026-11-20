@@ -31,6 +31,9 @@ export function RefundsScreen() {
   const [selected, setSelected] = useState<string | null>(params.bookingId ?? null);
   const [picking, setPicking] = useState(!params.bookingId);
   const [view, setView] = useState<CaseView>("open");
+  // The request flow stays folded behind one button until you need it (or arrive from a trip).
+  const [starting, setStarting] = useState(Boolean(params.bookingId));
+  const [showAll, setShowAll] = useState(false);
 
   // Follow a new ?bookingId= (e.g. "Refund" tapped on a trip) without an effect.
   const [seenParam, setSeenParam] = useState(params.bookingId);
@@ -39,10 +42,13 @@ export function RefundsScreen() {
     if (params.bookingId) {
       setSelected(params.bookingId);
       setPicking(false);
+      setStarting(true);
     }
   }
 
-  const items = useMemo(() => bookings?.items ?? [], [bookings]);
+  // Bookings you can act on first; the rest stay reachable under "Show all".
+  const items = useMemo(() => [...(bookings?.items ?? [])].sort((a, b) => Number(b.eligible) - Number(a.eligible)), [bookings]);
+  const PREVIEW = 3;
   const allCases = useMemo(() => cases?.items ?? [], [cases]);
   const openCases = allCases.filter((c) => !isClosed(c.status));
   const closedCases = allCases.filter((c) => isClosed(c.status));
@@ -71,33 +77,70 @@ export function RefundsScreen() {
         ]}
       />
 
-      <SectionLabel>Start a request</SectionLabel>
-      <Card>
-        <StepHead
-          n={1}
-          title="Choose a booking"
-          done={!showList}
-          right={
-            !showList && items.length > 1 ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Change booking" onPress={() => setPicking(true)} hitSlop={10}>
-                <Text style={styles.link}>Change</Text>
-              </Pressable>
-            ) : null
-          }
-        />
-        {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
-        {!isLoading && !items.length ? (
-          <View style={styles.inlineEmpty}>
-            <Ionicons name="airplane-outline" size={18} color={colors.inkFaint} />
-            <Text style={[type.bodySoft, styles.flex]}>No bookings can be refunded or cancelled right now.</Text>
+      {!starting ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            void Haptics.selectionAsync().catch(() => {});
+            setStarting(true);
+          }}
+          style={({ pressed }) => [styles.startCard, pressed && styles.pressed]}
+        >
+          <View style={styles.startIcon}>
+            <Ionicons name="add" size={22} color={colors.onBtn} />
           </View>
-        ) : null}
-        {showList || !chosen
-          ? items.map((b) => <BookingOption key={b.bookingId} b={b} on={selected === b.bookingId} onPress={() => choose(b.bookingId)} />)
-          : <BookingOption b={chosen} on onPress={() => setPicking(true)} />}
-      </Card>
+          <View style={styles.flex}>
+            <Text style={styles.startTitle}>Request a refund or cancellation</Text>
+            <Text style={styles.startSub}>
+              {isLoading ? "Checking your bookings…" : refundable ? `${refundable} of your trips can be refunded` : "See which trips can be changed"}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+        </Pressable>
+      ) : (
+        <Card>
+          <StepHead
+            n={1}
+            title="Choose a booking"
+            done={!showList}
+            right={
+              !showList && items.length > 1 ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Change booking" onPress={() => setPicking(true)} hitSlop={10}>
+                  <Text style={styles.link}>Change</Text>
+                </Pressable>
+              ) : !chosen ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setStarting(false)} hitSlop={10}>
+                  <Text style={styles.link}>Close</Text>
+                </Pressable>
+              ) : null
+            }
+          />
+          {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+          {!isLoading && !items.length ? (
+            <View style={styles.inlineEmpty}>
+              <Ionicons name="airplane-outline" size={18} color={colors.inkFaint} />
+              <Text style={[type.bodySoft, styles.flex]}>No bookings can be refunded or cancelled right now.</Text>
+            </View>
+          ) : null}
+          {showList || !chosen ? (
+            <>
+              {(showAll ? items : items.slice(0, PREVIEW)).map((b) => (
+                <BookingOption key={b.bookingId} b={b} on={selected === b.bookingId} onPress={() => choose(b.bookingId)} />
+              ))}
+              {items.length > PREVIEW ? (
+                <Pressable accessibilityRole="button" onPress={() => setShowAll((v) => !v)} hitSlop={8} style={styles.more}>
+                  <Text style={styles.link}>{showAll ? "Show fewer" : `Show all ${items.length} bookings`}</Text>
+                  <Ionicons name={showAll ? "chevron-up" : "chevron-down"} size={15} color={colors.accent} />
+                </Pressable>
+              ) : null}
+            </>
+          ) : (
+            <BookingOption b={chosen} on onPress={() => setPicking(true)} />
+          )}
+        </Card>
+      )}
 
-      {selected && !picking ? <ActionPanel bookingId={selected} onDone={() => refetchCases()} /> : null}
+      {starting && selected && !picking ? <ActionPanel bookingId={selected} onDone={() => refetchCases()} /> : null}
 
       <SectionLabel>Your refund cases</SectionLabel>
       {casesError ? <Notice message={formatApiError(casesError)} /> : null}
@@ -134,6 +177,7 @@ export function RefundsScreen() {
           body="When you request a refund or cancellation, you can track its progress here."
         />
       ) : null}
+
     </Screen>
   );
 }
@@ -156,19 +200,21 @@ function BookingOption({ b, on, onPress }: { b: RefundableBooking; on: boolean; 
           {bookingWhat(b)}
         </Text>
         <Text style={styles.optMeta} numberOfLines={1}>
-          {[bookingWhen(b), STATUS_LABEL[b.status] ?? b.status, b.trip?.reference].filter(Boolean).join(" · ")}
+          {[bookingWhen(b), STATUS_LABEL[b.status] ?? b.status].filter(Boolean).join(" · ")}
         </Text>
-        <View style={styles.optFoot}>
-          <TintTag
-            label={ELIGIBILITY_LABEL[b.eligibilityStatus] ?? b.eligibilityStatus.toLowerCase()}
-            tint={b.eligible ? "green" : b.eligibilityStatus === "NOT_ELIGIBLE" ? "slate" : "amber"}
-          />
-          <Text style={styles.optHint} numberOfLines={1}>
+        {on ? (
+          <Text style={styles.optHint} numberOfLines={2}>
             {refundHint(b)}
           </Text>
-        </View>
+        ) : null}
       </View>
-      <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={22} color={on ? colors.accent : colors.inkFaint} />
+      <View style={styles.optRight}>
+        <TintTag
+          label={ELIGIBILITY_LABEL[b.eligibilityStatus] ?? b.eligibilityStatus.toLowerCase()}
+          tint={b.eligible ? "green" : b.eligibilityStatus === "NOT_ELIGIBLE" ? "slate" : "amber"}
+        />
+        <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={20} color={on ? colors.accent : colors.inkFaint} />
+      </View>
     </Pressable>
   );
 }
@@ -334,7 +380,22 @@ const styles = StyleSheet.create({
   optTitle: { fontFamily: fonts.displaySemi, fontSize: 15, color: colors.ink },
   optMeta: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft },
   optFoot: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 2 },
-  optHint: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.inkSoft },
+  optHint: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.inkSoft, marginTop: 2 },
+  optRight: { alignItems: "flex-end", gap: 6 },
+  more: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 36 },
+  startCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: space.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+  },
+  startIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.danger, alignItems: "center", justifyContent: "center" },
+  startTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.ink },
+  startSub: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft, marginTop: 1 },
 
   hero: { backgroundColor: colors.successSoft, borderRadius: radius.md, padding: space.lg, gap: 4, alignItems: "flex-start" },
   heroPending: { backgroundColor: "#fdf1dc", flexDirection: "row", alignItems: "center", gap: space.md },

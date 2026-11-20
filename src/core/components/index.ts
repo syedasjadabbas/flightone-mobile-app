@@ -11,3 +11,4 @@ export { ListRow } from "./ListRow";
 export { DateField } from "./DateField";
 export { PageHeader, Segmented, SectionLabel } from "./PageParts";
 export { TINT, type TintName } from "./tints";
+export { ActionMenu, type MenuAction } from "./ActionMenu";

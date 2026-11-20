@@ -9,13 +9,15 @@ type Props = TextInputProps & {
   hint?: string;
   /** Leading icon inside the field (e.g. "mail-outline"). */
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Keep the label for screen readers but don't show it (e.g. a search box). */
+  hideLabel?: boolean;
 };
 
 /**
  * Labelled input with error text, accessible label and focus ring.
  * Password fields (`secureTextEntry`) get a show/hide eye button.
  */
-export function TextField({ label, error, hint, icon, style, onFocus, onBlur, secureTextEntry, ...rest }: Props) {
+export function TextField({ label, error, hint, icon, hideLabel, style, onFocus, onBlur, secureTextEntry, ...rest }: Props) {
   const [focused, setFocused] = useState(false);
   const [reveal, setReveal] = useState(false);
   const boxed = Boolean(icon) || Boolean(secureTextEntry);
@@ -33,7 +35,7 @@ export function TextField({ label, error, hint, icon, style, onFocus, onBlur, se
 
   return (
     <View style={styles.wrap}>
-      <Text style={type.label}>{label}</Text>
+      {hideLabel ? null : <Text style={type.label}>{label}</Text>}
       {boxed ? (
         <View style={[styles.box, focused && styles.focused, Boolean(error) && styles.invalid]}>
           {icon ? <Ionicons name={icon} size={18} color={focused ? colors.accent : colors.inkFaint} /> : null}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, Card, EmptyState, Notice, PageHeader, Pill, Screen, SectionLabel, TextField, TINT } from "@/core/components";
@@ -76,6 +76,10 @@ export function VisaScreen() {
   const [nationality, setNationality] = useState("PK");
   const [transit, setTransit] = useState("");
   const [purpose, setPurpose] = useState("Tourism");
+  // Keep the form short: codes and transit stay hidden until asked for.
+  const [editPassport, setEditPassport] = useState(false);
+  const [otherDest, setOtherDest] = useState(false);
+  const [showTransit, setShowTransit] = useState(false);
   const [result, setResult] = useState<VisaAssessment | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
@@ -145,37 +149,57 @@ export function VisaScreen() {
       {capability && !capability.canLookup ? <Notice tone="info" message={capability.reasons[0] || "Visa lookups aren't configured yet."} /> : null}
 
       <Card title="Do I need a visa?" subtitle="Pick a destination and purpose" icon="search" tint="green">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
-          {QUICK_DESTINATIONS.map((d) => (
-            <Pill key={d.code} label={d.label} selected={destination === d.code} onPress={() => setDestination(d.code)} />
-          ))}
-        </ScrollView>
-        <View style={styles.route}>
-          <View style={styles.flex}>
+        <View style={styles.block}>
+          <Text style={type.label}>Where to?</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
+            {QUICK_DESTINATIONS.map((d) => (
+              <Pill
+                key={d.code}
+                label={d.label}
+                selected={!otherDest && destination === d.code}
+                onPress={() => {
+                  setOtherDest(false);
+                  setDestination(d.code);
+                }}
+              />
+            ))}
+            <Pill label="Other…" selected={otherDest || !QUICK_DESTINATIONS.some((d) => d.code === destination)} onPress={() => setOtherDest(true)} />
+          </ScrollView>
+          {otherDest || !QUICK_DESTINATIONS.some((d) => d.code === destination) ? (
             <TextField
-              label="Passport"
-              hint="2-letter code"
-              value={nationality}
-              onChangeText={(t) => setNationality(t.toUpperCase().slice(0, 2))}
-              autoCapitalize="characters"
-              maxLength={2}
-            />
-          </View>
-          <View style={styles.arrow}>
-            <Ionicons name="arrow-forward" size={18} color={colors.inkFaint} />
-          </View>
-          <View style={styles.flex}>
-            <TextField
-              label="Destination"
-              hint="2-letter code"
+              label="Destination country code"
+              hint="2 letters, e.g. US, DE, MY"
               value={destination}
               onChangeText={(t) => setDestination(t.toUpperCase().slice(0, 2))}
               autoCapitalize="characters"
               maxLength={2}
+              autoFocus={otherDest}
             />
-          </View>
+          ) : null}
         </View>
-        <TextField label="Transit countries (optional)" hint="Comma separated, e.g. QA, TR" value={transit} onChangeText={setTransit} autoCapitalize="characters" />
+
+        {editPassport ? (
+          <TextField
+            label="Passport country code"
+            hint="2 letters, e.g. PK"
+            value={nationality}
+            onChangeText={(t) => setNationality(t.toUpperCase().slice(0, 2))}
+            autoCapitalize="characters"
+            maxLength={2}
+            autoFocus
+          />
+        ) : (
+          <View style={styles.passRow}>
+            <Ionicons name="id-card-outline" size={16} color={colors.inkSoft} />
+            <Text style={styles.passText}>
+              Passport: <Text style={styles.passStrong}>{nationality || "not set"}</Text>
+            </Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Change passport country" onPress={() => setEditPassport(true)} hitSlop={8}>
+              <Text style={styles.linkText}>Change</Text>
+            </Pressable>
+          </View>
+        )}
+
         <View style={styles.block}>
           <Text style={type.label}>Purpose</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
@@ -184,6 +208,14 @@ export function VisaScreen() {
             ))}
           </ScrollView>
         </View>
+        {showTransit || transit ? (
+          <TextField label="Transit countries" hint="Comma separated, e.g. QA, TR" value={transit} onChangeText={setTransit} autoCapitalize="characters" />
+        ) : (
+          <Pressable accessibilityRole="button" onPress={() => setShowTransit(true)} hitSlop={8} style={styles.addLink}>
+            <Ionicons name="add-circle-outline" size={16} color={colors.accent} />
+            <Text style={styles.linkText}>Add a transit stop</Text>
+          </Pressable>
+        )}
         <Button label="Check requirements" onPress={onAssess} loading={assessState.isLoading} disabled={capability ? !capability.canLookup : false} />
         <Text style={styles.foot}>Guidance only. Always confirm with the embassy or airline before you travel.</Text>
       </Card>
@@ -227,6 +259,11 @@ const styles = StyleSheet.create({
   block: { gap: space.xs },
   chipScroll: { marginHorizontal: -space.lg },
   chips: { gap: space.sm, paddingHorizontal: space.lg },
+  passRow: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.bg, borderRadius: 12, paddingHorizontal: space.md, minHeight: 42 },
+  passText: { flex: 1, fontFamily: fonts.body, fontSize: 14, color: colors.inkSoft },
+  passStrong: { fontFamily: fonts.bodySemi, color: colors.ink },
+  linkText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.accent },
+  addLink: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" },
   route: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
   arrow: { paddingTop: 38 },
   foot: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.inkFaint, textAlign: "center" },

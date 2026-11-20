@@ -1,14 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { colors, fonts, radius, shadow, space } from "@/core/theme/tokens";
+import { colors, fonts, radius, space } from "@/core/theme/tokens";
 import { TINT, type TintName } from "./tints";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 /**
- * Top of a feature page: icon badge, one-line purpose, and up to three
- * headline numbers (e.g. "3 · Open cases").
+ * Top of a feature page, kept compact so content starts high on the screen:
+ * a small icon badge with a short purpose line (or a title), and headline
+ * numbers as one line of text ("13 documents · 3 expiring · 0 expired").
  */
 export function PageHeader({
   icon,
@@ -24,31 +25,29 @@ export function PageHeader({
   stats?: { value: string | number; label: string }[];
 }) {
   const t = TINT[tint];
+  const shown = (stats ?? []).slice(0, 3);
   return (
-    <View style={styles.header}>
-      <View style={styles.headRow}>
-        <View style={[styles.badge, { backgroundColor: t.bg }]}>
-          <Ionicons name={icon} size={24} color={t.fg} />
-        </View>
-        <View style={styles.flex}>
-          {title ? <Text style={styles.title}>{title}</Text> : null}
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        </View>
+    <View style={styles.header} accessibilityRole="header">
+      <View style={[styles.badge, { backgroundColor: t.bg }]}>
+        <Ionicons name={icon} size={20} color={t.fg} />
       </View>
-      {stats?.length ? (
-        <View style={styles.stats}>
-          {stats.slice(0, 3).map((s, i) => (
-            <View key={s.label} style={[styles.stat, i > 0 && styles.statDivider]}>
-              <Text style={styles.statValue} numberOfLines={1}>
-                {s.value}
+      <View style={styles.flex}>
+        {title ? <Text style={styles.title}>{title}</Text> : null}
+        <Text style={styles.subtitle} numberOfLines={2}>
+          {subtitle}
+        </Text>
+        {shown.length ? (
+          <Text style={styles.statsLine} numberOfLines={2} accessibilityLabel={shown.map((s) => `${s.value} ${s.label}`).join(", ")}>
+            {shown.map((s, i) => (
+              <Text key={s.label}>
+                {i > 0 ? <Text style={styles.statSep}>{"  ·  "}</Text> : null}
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={styles.statLabel}> {s.label.toLowerCase()}</Text>
               </Text>
-              <Text style={styles.statLabel} numberOfLines={1}>
-                {s.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
+            ))}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -106,25 +105,14 @@ export function SectionLabel({ children, right }: { children: string; right?: Re
 
 const styles = StyleSheet.create({
   flex: { flex: 1, gap: 2 },
-  header: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md + 8,
-    padding: space.lg,
-    gap: space.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.line,
-    ...shadow,
-    shadowOpacity: 0.06,
-  },
-  headRow: { flexDirection: "row", alignItems: "center", gap: space.md },
-  badge: { width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-  title: { fontFamily: fonts.display, fontSize: 19, color: colors.ink },
-  subtitle: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkSoft },
-  stats: { flexDirection: "row", backgroundColor: colors.bg, borderRadius: radius.md, paddingVertical: space.md },
-  stat: { flex: 1, alignItems: "center", gap: 2, paddingHorizontal: space.xs },
-  statDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.line },
-  statValue: { fontFamily: fonts.display, fontSize: 18, color: colors.ink },
-  statLabel: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.inkSoft },
+  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.xs, paddingVertical: space.xs },
+  badge: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  title: { fontFamily: fonts.display, fontSize: 18, color: colors.ink },
+  subtitle: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.inkSoft },
+  statsLine: { marginTop: 3 },
+  statValue: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink },
+  statLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft },
+  statSep: { fontFamily: fonts.body, fontSize: 13, color: colors.inkFaint },
 
   segment: { flexDirection: "row", backgroundColor: "#e6ebf1", borderRadius: radius.pill, padding: 4 },
   segBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 38, borderRadius: radius.pill, paddingHorizontal: 6 },

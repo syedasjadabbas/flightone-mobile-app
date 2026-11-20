@@ -1,9 +1,9 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { TINT, type TintName } from "@/core/components";
+import { ActionMenu, TINT, type TintName } from "@/core/components";
 import { colors, fonts, space } from "@/core/theme/tokens";
 import type { VaultDocType, VaultDocument } from "../api/types";
-import { expiryDisplay, formatByteSize, vaultDocIconKind, type ExpiryTone } from "../lib/vaultFormat";
+import { expiryDisplay, vaultDocIconKind, type ExpiryTone } from "../lib/vaultFormat";
 import { ToneTag, type Tone } from "./ToneTag";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -34,7 +34,7 @@ function expiryTag(expiresAt: string | null) {
 
 type Action = { label: string; icon: IconName; onPress: () => void; danger?: boolean; busy?: boolean };
 
-/** One vault document: type icon, title, status tag, one detail line and compact actions. */
+/** One vault document: type icon, title, a status line, and a ⋯ menu for its actions. */
 export function DocRow({
   doc,
   primary,
@@ -53,7 +53,6 @@ export function DocRow({
   const detail = [
     exp.date ? `${exp.tone === "danger" ? "Expired" : "Expires"} ${exp.date}` : null,
     doc.visaMeta?.destinationCode ? `For ${doc.visaMeta.destinationCode}` : null,
-    formatByteSize(doc.byteSize),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -77,72 +76,35 @@ export function DocRow({
           <View style={styles.tags}>
             <ToneTag label={exp.short} tone={exp.tone} />
             {doc.isPlatformIssued ? <ToneTag label="FlightOne" tone="info" icon="shield-checkmark" /> : null}
+            {detail ? (
+              <Text style={[styles.detail, styles.flex]} numberOfLines={1}>
+                {detail}
+              </Text>
+            ) : null}
           </View>
-          {detail ? (
-            <Text style={styles.detail} numberOfLines={1}>
-              {detail}
-            </Text>
-          ) : null}
         </View>
-        {primary ? (
-          primary.busy ? (
-            <ActivityIndicator color={colors.accent} />
-          ) : (
-            <Ionicons name="chevron-forward" size={17} color={colors.inkFaint} />
-          )
-        ) : null}
+        {primary?.busy ? <ActivityIndicator color={colors.accent} /> : null}
       </Pressable>
-      {actions.length ? (
-        <View style={styles.actions}>
-          {primary ? (
-            <ActionChip label={primary.label} icon={primary.icon} onPress={primary.onPress} busy={primary.busy} />
-          ) : null}
-          {actions.map((a) => (
-            <ActionChip key={a.label} {...a} />
-          ))}
-        </View>
-      ) : null}
+      <ActionMenu
+        title={doc.title}
+        actions={[
+          ...(primary ? [{ label: primary.label, icon: primary.icon, onPress: primary.onPress }] : []),
+          ...actions.map((a) => ({ label: a.label, icon: a.icon, onPress: a.onPress, destructive: a.danger })),
+        ]}
+      />
     </View>
   );
 }
 
-function ActionChip({ label, icon, onPress, danger, busy }: Action) {
-  const color = danger ? colors.danger : colors.ink;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={busy}
-      onPress={onPress}
-      hitSlop={6}
-      style={({ pressed }) => [styles.chip, danger && styles.chipDanger, pressed && styles.pressed]}
-    >
-      <Ionicons name={icon} size={14} color={color} />
-      <Text style={[styles.chipText, { color }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  row: { paddingVertical: space.md, gap: space.sm },
+  row: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: space.md },
+  flex: { flex: 1 },
   divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
-  main: { flexDirection: "row", alignItems: "center", gap: space.md },
+  main: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.md },
   pressed: { opacity: 0.7 },
   badge: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   text: { flex: 1, gap: 4 },
   title: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.ink },
-  tags: { flexDirection: "row", gap: space.xs, flexWrap: "wrap" },
+  tags: { flexDirection: "row", alignItems: "center", gap: space.xs },
   detail: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
-  actions: { flexDirection: "row", gap: space.sm, marginLeft: 40 + space.md, flexWrap: "wrap" },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    minHeight: 32,
-    paddingHorizontal: space.md,
-    borderRadius: 999,
-    backgroundColor: colors.bg,
-  },
-  chipDanger: { backgroundColor: colors.dangerSoft },
-  chipText: { fontFamily: fonts.bodySemi, fontSize: 13 },
 });
