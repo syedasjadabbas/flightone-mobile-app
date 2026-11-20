@@ -166,6 +166,4 @@ Before the first store build, point `EXPO_PUBLIC_API_URL` at the hosted API (not
 
 ## License
 
-Proprietary. © FlightOne. All rights reserved.
-The `LICENSE` file currently in the repository came from the Expo starter template and does not
-apply to the FlightOne app code; it will be replaced.
+Proprietary. © FlightOne. All rights reserved. See [LICENSE](LICENSE).
