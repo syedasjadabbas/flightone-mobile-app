@@ -17,6 +17,7 @@ import {
 import { store } from "@/core/store/store";
 import { bootstrapAuth } from "@/core/auth/bootstrap";
 import { AnimatedSplash } from "@/core/components/AnimatedSplash";
+import { ConnectionBanner } from "@/core/components/ConnectionBanner";
 import { colors } from "@/core/theme/tokens";
 
 // Keep the native splash up until the animated splash has drawn the same frame.
@@ -59,6 +60,7 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: colors.bg },
               }}
             />
+            <ConnectionBanner />
           </SafeAreaProvider>
         </Provider>
       ) : null}

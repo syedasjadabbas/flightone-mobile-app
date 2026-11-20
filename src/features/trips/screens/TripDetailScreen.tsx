@@ -1,6 +1,6 @@
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { EmptyState, Screen } from "@/core/components";
+import { EmptyState, Screen, SkeletonCard, SkeletonList } from "@/core/components";
 import { colors, space } from "@/core/theme/tokens";
 import { useJourneyWatchesQuery } from "../api/journeyApi";
 import { NextTripCard } from "../components/NextTripCard";
@@ -16,8 +16,10 @@ export function TripDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} />
+      <View style={styles.skeleton}>
+        <SkeletonCard height={190} dark />
+        <SkeletonCard height={96} />
+        <SkeletonList count={3} />
       </View>
     );
   }
@@ -41,5 +43,6 @@ export function TripDetailScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
+  skeleton: { flex: 1, padding: space.lg, gap: space.lg, backgroundColor: colors.bg },
   content: { gap: space.lg },
 });

@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, fonts, radius, space } from "@/core/theme/tokens";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
+import { colors, fonts, space } from "@/core/theme/tokens";
 
 export type Prefill = { text: string; key: number };
 
+const BTN = 44;
+const LINE = 21;
+
 /**
- * Message box with Send, or Stop while Ava is answering.
+ * Message box: one rounded input pill that grows to about five lines, with a round
+ * arrow-up Send button, which becomes a square Stop button while Ava is answering.
  * `prefill` (new `key` each time) puts text in the box and focuses it, e.g. "Edit" on your last question.
  */
 export function Composer({
@@ -33,79 +39,111 @@ export function Composer({
 
   const submit = () => {
     if (!canSend) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onSend(text);
     setText("");
   };
 
+  const stop = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    onStop();
+  };
+
   return (
     <View style={styles.bar}>
-      <TextInput
-        ref={inputRef}
-        value={text}
-        onChangeText={setText}
-        placeholder="Where do you want to go?"
-        placeholderTextColor={colors.inkFaint}
-        accessibilityLabel="Message Ava"
-        multiline
-        maxLength={2000}
-        style={styles.input}
-        onSubmitEditing={submit}
-        submitBehavior="submit"
-        returnKeyType="send"
-      />
-      {busy ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Stop Ava" onPress={onStop} style={[styles.btn, styles.stop]}>
-          <Text style={styles.btnText}>Stop</Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          accessibilityState={{ disabled: !canSend }}
-          disabled={!canSend}
-          onPress={submit}
-          style={[styles.btn, !canSend && styles.off]}
-        >
-          <Text style={styles.btnText}>Send</Text>
-        </Pressable>
-      )}
+      <View style={styles.pill}>
+        <TextInput
+          ref={inputRef}
+          value={text}
+          onChangeText={setText}
+          placeholder="Ask Ava anything about your trip…"
+          placeholderTextColor={colors.inkFaint}
+          accessibilityLabel="Message Ava"
+          multiline
+          maxLength={2000}
+          style={styles.input}
+          onSubmitEditing={submit}
+          submitBehavior="submit"
+          returnKeyType="send"
+        />
+        {busy ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Stop Ava"
+            onPress={stop}
+            hitSlop={6}
+            style={({ pressed }) => [styles.stop, pressed && styles.pressed]}
+          >
+            <View style={styles.stopGlyph} />
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            accessibilityState={{ disabled: !canSend }}
+            disabled={!canSend}
+            onPress={submit}
+            hitSlop={6}
+            style={({ pressed }) => [styles.send, !canSend && styles.sendOff, pressed && styles.pressed]}
+          >
+            <Ionicons name="arrow-up" size={22} color={canSend ? colors.onBtn : colors.inkFaint} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: space.sm,
-    padding: space.md,
+    paddingHorizontal: space.md,
+    paddingTop: space.sm + 2,
+    paddingBottom: space.sm + 2,
     backgroundColor: colors.card,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
   },
+  pill: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space.sm,
+    minHeight: BTN + 8,
+    borderRadius: 26,
+    backgroundColor: colors.bg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    paddingLeft: space.lg,
+    paddingRight: 4,
+    paddingVertical: 4,
+  },
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: radius.md,
-    backgroundColor: colors.bg,
-    paddingHorizontal: space.md,
-    paddingTop: 12,
-    paddingBottom: 12,
+    minHeight: BTN,
+    maxHeight: LINE * 5 + 22,
+    paddingTop: 11,
+    paddingBottom: 11,
     fontFamily: fonts.body,
     fontSize: 15,
+    lineHeight: LINE,
     color: colors.ink,
   },
-  btn: {
-    minHeight: 44,
-    minWidth: 64,
-    borderRadius: radius.pill,
+  send: {
+    width: BTN,
+    height: BTN,
+    borderRadius: BTN / 2,
     backgroundColor: colors.btn,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: space.lg,
   },
-  stop: { backgroundColor: colors.danger },
-  off: { opacity: 0.4 },
-  btnText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onBtn },
+  sendOff: { backgroundColor: "#e3e9ef" },
+  stop: {
+    width: BTN,
+    height: BTN,
+    borderRadius: 12,
+    backgroundColor: colors.btn,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stopGlyph: { width: 14, height: 14, borderRadius: 3, backgroundColor: "#ffffff" },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.96 }] },
 });

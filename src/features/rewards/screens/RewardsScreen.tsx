@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { Button, Card, EmptyState, Notice, Screen, SectionLabel, TextField, TINT } from "@/core/components";
+import { Button, Card, EmptyState, Notice, Screen, SectionLabel, SkeletonCard, SkeletonList, TextField, TINT } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { colors, fonts, radius, space } from "@/core/theme/tokens";
 import { ToneTag } from "@/features/vault/components/ToneTag";
@@ -99,8 +99,9 @@ export function RewardsScreen() {
 
   if (isLoading) {
     return (
-      <Screen>
-        <ActivityIndicator color={colors.accent} />
+      <Screen edges={["left", "right", "bottom"]}>
+        <SkeletonCard height={230} dark />
+        <SkeletonList count={3} />
       </Screen>
     );
   }

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { Button, Card, EmptyState, Notice, PageHeader, Pill, Screen, SectionLabel, TextField } from "@/core/components";
+import { Button, Card, EmptyState, Notice, PageHeader, Pill, Screen, SectionLabel, SkeletonList, TextField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { confirmAction } from "@/core/lib/confirm";
 import { colors, fonts, radius, space } from "@/core/theme/tokens";
@@ -185,7 +185,7 @@ export function VaultScreen() {
         </>
       ) : null}
 
-      {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+      {isLoading ? <SkeletonList count={4} /> : null}
       {error ? (
         <>
           <Notice message={formatApiError(error, "Your vault is unavailable right now.")} />

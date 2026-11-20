@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Button, Notice } from "@/core/components";
+import { Button, Notice, SkeletonList } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { useAuthStore } from "@/core/auth/auth.store";
 import { confirmAction } from "@/core/lib/confirm";
@@ -115,7 +115,7 @@ export function ProfileScreen() {
         ) : null}
       </View>
 
-      {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+      {isLoading ? <SkeletonList count={4} /> : null}
       {error ? (
         <View style={styles.errorBox}>
           <Notice message={formatApiError(error, "We couldn't load your profile.")} />

@@ -23,7 +23,8 @@ export function ProgressCard({ phase }: { phase: AvaPhase | null }) {
   const [timed, setTimed] = useState(0);
   const fly = useAnimValue(0);
   const { width } = useWindowDimensions();
-  const track = Math.min(width - 96, 320);
+  // Screen padding + Ava avatar gutter + bubble padding.
+  const track = Math.min(width - 136, 320);
 
   useEffect(() => {
     const t = setInterval(() => setTimed((n) => n + 1), STEP_MS);

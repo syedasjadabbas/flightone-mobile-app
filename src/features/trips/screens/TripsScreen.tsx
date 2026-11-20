@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, RefreshControl, SectionList, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { EmptyState, Notice } from "@/core/components";
+import { EmptyState, Notice, Skeleton, SkeletonCard, SkeletonList } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
 import { colors, fonts, radius, space } from "@/core/theme/tokens";
 import { useJourneyWatchesQuery } from "../api/journeyApi";
@@ -163,8 +163,12 @@ export function TripsScreen() {
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
+        <View style={styles.skeleton}>
+          <Skeleton width={120} height={30} radius={10} />
+          <Skeleton width={190} height={14} />
+          <Skeleton height={44} radius={22} style={styles.skeletonGap} />
+          <SkeletonCard height={150} dark />
+          <SkeletonList count={4} lines={3} iconSize={54} />
         </View>
       ) : (
         <SectionList
@@ -195,6 +199,8 @@ export function TripsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  skeleton: { padding: space.lg, gap: space.md },
+  skeletonGap: { marginTop: space.sm },
   list: { padding: space.lg, paddingBottom: space.xxl },
   header: { gap: space.md, marginBottom: space.xs },
   pressed: { opacity: 0.85 },

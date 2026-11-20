@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, DateField, Notice, TextField } from "@/core/components";
 import { formatApiError } from "@/core/api/formatApiError";
-import { colors, radius, space, type } from "@/core/theme/tokens";
+import { colors, fonts, radius, space, type } from "@/core/theme/tokens";
 import { useApplyScannedFieldsMutation, useScanDocumentMutation, useUpdateIdentityDocumentMutation } from "../api/profileApi";
 import {
   buildOcrConfirmPlan,
@@ -19,7 +20,7 @@ import {
  * DocumentOcrPanel: scan → review/correct → unchanged fields via /ocr/apply,
  * corrected ones via PATCH. Never treats an unconfigured scanner as a result.
  */
-export function DocumentScanPanel({ documentId, onDone }: { documentId: string; onDone?: () => void }) {
+export function DocumentScanPanel({ documentId, onDone, onCancel }: { documentId: string; onDone?: () => void; onCancel?: () => void }) {
   const [scan, scanState] = useScanDocumentMutation();
   const [applyFields, applyState] = useApplyScannedFieldsMutation();
   const [update, updateState] = useUpdateIdentityDocumentMutation();
@@ -58,24 +59,46 @@ export function DocumentScanPanel({ documentId, onDone }: { documentId: string; 
 
   return (
     <View style={styles.panel}>
-      <Text style={type.label}>Document details</Text>
+      <View style={styles.head}>
+        <View style={styles.badge}>
+          <Ionicons name="scan-outline" size={16} color={colors.accent} />
+        </View>
+        <Text style={styles.title}>Document details</Text>
+        {onCancel ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Close scan" hitSlop={10} onPress={onCancel} style={({ pressed }) => [styles.close, pressed && styles.pressed]}>
+            <Ionicons name="close" size={16} color={colors.inkSoft} />
+          </Pressable>
+        ) : null}
+      </View>
       <Text style={type.bodySoft}>{ocrStatusMessage(status)}</Text>
       {status === "idle" || status === "failure" ? (
         <Button label={status === "failure" ? "Try scanning again" : "Scan details from my upload"} variant="ghost" onPress={runScan} />
       ) : null}
       {status === "processing" ? null : status !== "idle" ? (
         <>
-          <TextField label="Document number" value={fields.documentNumber} onChangeText={set("documentNumber")} autoCapitalize="characters" />
-          <TextField
-            label="Issuing country"
-            hint="2-letter code, e.g. PK"
-            value={fields.countryCode}
-            onChangeText={(t) => set("countryCode")(t.toUpperCase().slice(0, 2))}
-            autoCapitalize="characters"
-            maxLength={2}
-          />
-          <DateField label="Issued" value={fields.issuedAt} onChange={set("issuedAt")} maximumDate={new Date()} optional />
-          <DateField label="Expires" value={fields.expiresAt} onChange={set("expiresAt")} optional />
+          <View style={styles.pair}>
+            <View style={styles.narrow}>
+              <TextField
+                label="Country"
+                hint="e.g. PK"
+                value={fields.countryCode}
+                onChangeText={(t) => set("countryCode")(t.toUpperCase().slice(0, 2))}
+                autoCapitalize="characters"
+                maxLength={2}
+              />
+            </View>
+            <View style={styles.flex}>
+              <TextField label="Document number" value={fields.documentNumber} onChangeText={set("documentNumber")} autoCapitalize="characters" />
+            </View>
+          </View>
+          <View style={styles.pair}>
+            <View style={styles.flex}>
+              <DateField label="Issued" value={fields.issuedAt} onChange={set("issuedAt")} maximumDate={new Date()} optional />
+            </View>
+            <View style={styles.flex}>
+              <DateField label="Expires" value={fields.expiresAt} onChange={set("expiresAt")} optional />
+            </View>
+          </View>
           {message ? <Notice tone={message.tone} message={message.text} /> : null}
           <Button label="Save details" onPress={confirm} loading={applyState.isLoading || updateState.isLoading} />
         </>
@@ -85,5 +108,21 @@ export function DocumentScanPanel({ documentId, onDone }: { documentId: string; 
 }
 
 const styles = StyleSheet.create({
-  panel: { gap: space.sm, backgroundColor: colors.bg, borderRadius: radius.sm, padding: space.md, marginTop: space.xs },
+  panel: {
+    gap: space.md,
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    padding: space.md,
+    marginTop: space.xs,
+  },
+  head: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  badge: { width: 28, height: 28, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft },
+  title: { flex: 1, fontFamily: fonts.bodySemi, fontSize: 14, color: colors.ink },
+  close: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
+  pressed: { opacity: 0.7 },
+  pair: { flexDirection: "row", gap: space.sm, alignItems: "flex-start" },
+  narrow: { width: 96 },
+  flex: { flex: 1 },
 });

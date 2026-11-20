@@ -80,8 +80,26 @@ export function ResultsScreen() {
         ...(f.anyRefundable ? [{ key: "rf", label: "Refundable", on: filters.refundable, run: () => set({ refundable: !filters.refundable }) }] : []),
       ];
 
+  const subline = [panel.dateSpan, panel.passengers ? `${panel.passengers} traveller${panel.passengers === 1 ? "" : "s"}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  const live = panel.liveFlights || panel.liveHotels;
+
   const header = (
     <View style={styles.header}>
+      {subline || live ? (
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText} numberOfLines={1}>
+            {subline}
+          </Text>
+          {live ? (
+            <View style={styles.live}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Live prices</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.segment} accessibilityRole="tablist">
         {SORTS.filter((s) => !(f.isHotel && s.key === "duration")).map((s) => {
           const on = s.key === sort;
@@ -269,8 +287,13 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   list: { padding: space.lg },
-  sep: { height: space.md },
-  header: { gap: space.md, marginBottom: space.md },
+  sep: { height: space.md + 2 },
+  header: { gap: space.md, marginBottom: space.lg },
+  summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md },
+  summaryText: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.inkSoft },
+  live: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.successSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
+  liveText: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.success },
   pressed: { opacity: 0.85 },
 
   segment: { flexDirection: "row", backgroundColor: "#e6ebf1", borderRadius: radius.pill, padding: 4 },
@@ -289,8 +312,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     borderRadius: radius.pill,
     backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(11, 18, 25, 0.16)",
   },
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.ink },
