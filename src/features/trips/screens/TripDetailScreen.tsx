@@ -4,7 +4,7 @@ import { EmptyState, Screen } from "@/core/components";
 import { colors, space } from "@/core/theme/tokens";
 import { useJourneyWatchesQuery } from "../api/journeyApi";
 import { NextTripCard } from "../components/NextTripCard";
-import { TripCard } from "../components/TripCard";
+import { TripDetailBody } from "../components/TripDetailBody";
 import { journeyHeadline } from "../lib/journeySteps";
 import { localToday } from "../lib/tripList";
 
@@ -34,7 +34,7 @@ export function TripDetailScreen() {
     <Screen edges={["left", "right", "bottom"]} contentStyle={styles.content}>
       <Stack.Screen options={{ title: journeyHeadline(watch).route }} />
       <NextTripCard watch={watch} today={localToday()} asHeader />
-      <TripCard watch={watch} detailed />
+      <TripDetailBody watch={watch} />
     </Screen>
   );
 }
